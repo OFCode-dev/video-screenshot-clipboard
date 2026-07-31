@@ -102,66 +102,25 @@
       host,
       button,
       busy: false,
-      hovering: false,
-      buttonFocused: false,
       intersecting: true,
-      revealUntil: 0,
-      hideTimer: 0,
     };
     records.set(video, record);
     intersectionObserver.observe(video);
     resizeObserver.observe(video);
 
-    video.addEventListener("pointerenter", () => reveal(record));
-    video.addEventListener("pointerleave", () => scheduleHide(record));
-    video.addEventListener("pointerdown", () => reveal(record, 2400), true);
-    video.addEventListener("play", () => reveal(record, 3600));
-    video.addEventListener("playing", () => reveal(record, 3600));
+    video.addEventListener("play", scheduleLayout);
+    video.addEventListener("playing", scheduleLayout);
     video.addEventListener("pause", scheduleLayout);
     video.addEventListener("ended", scheduleLayout);
-    video.addEventListener("loadedmetadata", () => reveal(record, 2600));
+    video.addEventListener("loadedmetadata", scheduleLayout);
     video.addEventListener("emptied", scheduleLayout);
-
-    host.addEventListener("pointerenter", () => {
-      clearTimeout(record.hideTimer);
-      record.hovering = true;
-      scheduleLayout();
-    });
-    host.addEventListener("pointerleave", () => scheduleHide(record));
-    button.addEventListener("focus", () => {
-      record.buttonFocused = true;
-      scheduleLayout();
-    });
-    button.addEventListener("blur", () => {
-      record.buttonFocused = false;
-      scheduleLayout();
-    });
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopImmediatePropagation();
       copyCurrentFrame(record);
     }, true);
 
-    reveal(record, 2600);
-  }
-
-  function reveal(record, duration = 1200) {
-    clearTimeout(record.hideTimer);
-    record.hovering = true;
-    record.revealUntil = Math.max(record.revealUntil, Date.now() + duration);
     scheduleLayout();
-    record.hideTimer = setTimeout(() => {
-      record.hovering = false;
-      scheduleLayout();
-    }, duration);
-  }
-
-  function scheduleHide(record) {
-    clearTimeout(record.hideTimer);
-    record.hideTimer = setTimeout(() => {
-      record.hovering = false;
-      scheduleLayout();
-    }, 180);
   }
 
   function scheduleLayout() {
@@ -173,25 +132,17 @@
   }
 
   function updateLayouts() {
-    const now = Date.now();
     for (const record of records.values()) {
       const { video, host } = record;
       if (!video.isConnected) continue;
       const rect = video.getBoundingClientRect();
       const largeEnough = rect.width >= MIN_VIDEO_WIDTH && rect.height >= MIN_VIDEO_HEIGHT;
       const onScreen = rect.bottom > 0 && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth;
-      const shouldShow = (
-        largeEnough &&
-        onScreen &&
-        record.intersecting &&
-        (
-          record.busy ||
-          record.hovering ||
-          record.buttonFocused ||
-          record.revealUntil > now ||
-          (!video.paused && !video.ended)
-        )
-      );
+      // Keep the control available for every visible, usable video. Some
+      // sites place a pointer-events layer above decorative or lazy videos,
+      // so neither hover nor the media's paused state is a reliable signal
+      // that the user can see the video.
+      const shouldShow = largeEnough && onScreen && record.intersecting;
 
       const left = Utils.clamp(
         rect.right - BUTTON_SIZE - BUTTON_INSET,
@@ -221,7 +172,6 @@
   function removeDisconnectedVideos() {
     for (const [video, record] of records) {
       if (video.isConnected) continue;
-      clearTimeout(record.hideTimer);
       intersectionObserver.unobserve(video);
       resizeObserver.unobserve(video);
       record.host.remove();
@@ -250,7 +200,6 @@
     record.busy = true;
     record.button.disabled = true;
     record.button.innerHTML = busyIcon();
-    record.revealUntil = Date.now() + 5000;
     sendBadge("busy");
     scheduleLayout();
 
