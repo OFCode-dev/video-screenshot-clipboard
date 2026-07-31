@@ -8,6 +8,6 @@ The extension processes the current frame of an HTML5 video locally in your brow
 
 The extension contains no analytics, advertising, tracking, accounts, remote code, or telemetry. It does not retain page URLs, video data, captured images, clipboard contents, or usage history.
 
-Permissions are used only to detect videos on web pages, capture the visible video area when direct frame capture is blocked, and write the resulting PNG to the clipboard.
+Permissions are used only to detect videos on web pages, capture the visible video area when direct frame capture is blocked, and write the resulting PNG from a hidden extension-owned document so website clipboard policies cannot interfere.
 
 Questions: contact@ofcodedev.me

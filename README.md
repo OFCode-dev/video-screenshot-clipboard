@@ -14,7 +14,7 @@ This is the third extension in the OFCode screenshot-to-clipboard family:
 2. A small camera button remains visible on every sufficiently large video currently in view.
 3. Clicking the button first draws the decoded frame to a canvas at the video's native resolution.
 4. If the page blocks that canvas as cross-origin, the extension captures the visible tab, translates nested-frame coordinates to the top-level viewport, and crops the exact video rectangle.
-5. The PNG is written to the clipboard. It is never downloaded or uploaded.
+5. A private extension-owned offscreen document writes the PNG to the clipboard, so website and iframe Permissions Policy rules cannot block it. The image is never downloaded or uploaded.
 
 The toolbar icon provides a second route: clicking it captures the largest visible video across the top-level page and its embedded players.
 
@@ -35,8 +35,9 @@ For a deterministic local video, run `npm run serve:fixture` and open `http://12
 | Permission | Why it is required |
 |---|---|
 | `clipboardWrite` | Writes the captured PNG to the clipboard. |
+| `offscreen` | Writes the PNG from an extension-owned hidden document, outside website clipboard restrictions. |
 | `storage` | Syncs the user's shortcut keys and timing preference. |
-| Access to HTTP(S) pages | Detects videos automatically and enables the visible-tab fallback when direct canvas capture is blocked. |
+| Access to all page URLs | Detects videos automatically and enables Chrome's visible-tab fallback when direct canvas capture is blocked. Chrome requires the literal `<all_urls>` host permission for page-button captures; file URLs still require the user's separate opt-in. |
 
 The extension does not request `downloads` or analytics-related permissions.
 

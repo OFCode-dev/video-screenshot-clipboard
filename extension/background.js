@@ -5,8 +5,11 @@
 
 const CAPTURE_INTERVAL_MS = 550;
 const FRAME_STATUS_TTL_MS = 5000;
+const OFFSCREEN_PATH = "offscreen.html";
 let lastCaptureAt = 0;
 let captureQueue = Promise.resolve();
+let clipboardQueue = Promise.resolve();
+let creatingOffscreen = null;
 const frameCandidates = new Map();
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -38,6 +41,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     captureQueue
       .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+      .catch((error) => sendResponse({ ok: false, error: safeError(error) }));
+    return true;
+  }
+
+  if (message?.type === "VSC_COPY_PNG") {
+    clipboardQueue = clipboardQueue
+      .catch(() => undefined)
+      .then(() => copyPngInOffscreen(message.dataUrl));
+
+    clipboardQueue
+      .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: safeError(error) }));
     return true;
   }
@@ -110,6 +124,39 @@ async function captureVisibleForSender(sender) {
   lastCaptureAt = Date.now();
 
   return chrome.tabs.captureVisibleTab(sourceTab.windowId, { format: "png" });
+}
+
+async function copyPngInOffscreen(dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) {
+    throw new Error("Invalid PNG data");
+  }
+  await ensureOffscreenDocument();
+  const response = await chrome.runtime.sendMessage({
+    target: "offscreen",
+    type: "VSC_OFFSCREEN_COPY_PNG",
+    dataUrl,
+  });
+  if (!response?.ok) throw new Error(response?.error || "Clipboard write failed");
+}
+
+async function ensureOffscreenDocument() {
+  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [offscreenUrl],
+  });
+  if (contexts.length > 0) return;
+
+  if (!creatingOffscreen) {
+    creatingOffscreen = chrome.offscreen.createDocument({
+      url: OFFSCREEN_PATH,
+      reasons: ["CLIPBOARD"],
+      justification: "Copy a user-requested video frame PNG to the clipboard.",
+    }).finally(() => {
+      creatingOffscreen = null;
+    });
+  }
+  await creatingOffscreen;
 }
 
 async function flashBadge(status) {

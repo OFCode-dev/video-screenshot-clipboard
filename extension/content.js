@@ -556,20 +556,23 @@
   }
 
   async function writePngToClipboard(blob) {
-    if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
-      throw new Error("Image clipboard access is unavailable");
+    const dataUrl = await blobToDataUrl(blob);
+    const response = await chrome.runtime.sendMessage({
+      type: "VSC_COPY_PNG",
+      dataUrl,
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Image clipboard write failed");
     }
-    const item = new ClipboardItem({ "image/png": blob });
-    try {
-      await navigator.clipboard.write([item]);
-    } catch (firstError) {
-      try {
-        window.focus();
-        await navigator.clipboard.write([item]);
-      } catch (_) {
-        throw firstError;
-      }
-    }
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("Could not read the captured PNG"));
+      reader.readAsDataURL(blob);
+    });
   }
 
   function canvasToPng(canvas) {

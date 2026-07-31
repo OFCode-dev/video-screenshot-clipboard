@@ -5,14 +5,14 @@
   "version": "0.1.0",
   "description": "Copy the current frame of any HTML5 video straight to your clipboard.",
   "minimum_chrome_version": "116",
-  "permissions": ["clipboardWrite", "storage"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": ["clipboardWrite", "offscreen", "storage"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["<all_urls>"],
       "all_frames": true,
       "match_about_blank": true,
       "match_origin_as_fallback": true,
