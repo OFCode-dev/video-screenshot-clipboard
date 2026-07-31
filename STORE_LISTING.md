@@ -18,6 +18,7 @@ Hover an HTML5 video, click the camera button, and the current frame is copied a
 
 - One click from the video player
 - Toolbar shortcut for the largest visible video
+- Custom one-key or two-key page shortcut (default: V then S)
 - Native-resolution frame capture when the site allows it
 - Automatic visible-frame fallback for cross-origin video
 - Works with videos added dynamically by modern web apps

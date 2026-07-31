@@ -4,6 +4,10 @@
 
 - [ ] Camera button remains visible on every sufficiently large video currently in view.
 - [ ] Camera button stays visible on a paused or lazy background video even when another page layer covers the video.
+- [ ] When another screenshot extension occupies the upper-right corner, this extension shifts left instead of overlapping it.
+- [ ] Default `V` then `S` triggers one capture within 0.7 seconds.
+- [ ] `S` then `S` and single-key `P` can be saved from Options and work after saving.
+- [ ] Shortcuts do not fire in inputs, textareas, selects, or editable content.
 - [ ] Clicking the button copies a PNG without downloading a file.
 - [ ] Clicking the toolbar icon captures the largest visible top-level video.
 - [ ] Pasting into Preview/Paint, Slack, Figma, ChatGPT, and a document works.

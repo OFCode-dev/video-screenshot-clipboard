@@ -18,6 +18,8 @@ This is the third extension in the OFCode screenshot-to-clipboard family:
 
 The toolbar icon provides a second route: clicking it captures the largest visible video in the top-level page.
 
+The default page shortcut is **V then S** within 0.7 seconds. Open the extension's Options page to choose a two-key sequence such as **S then S**, a single key such as **P**, or a different timing window. Shortcuts are ignored while typing in editable fields.
+
 ## Install for development
 
 1. Run `npm run icons` and `npm run check`.
@@ -33,6 +35,7 @@ For a deterministic local video, run `npm run serve:fixture` and open `http://12
 | Permission | Why it is required |
 |---|---|
 | `clipboardWrite` | Writes the captured PNG to the clipboard. |
+| `storage` | Syncs the user's shortcut keys and timing preference. |
 | Access to HTTP(S) pages | Detects videos automatically and enables the visible-tab fallback when direct canvas capture is blocked. |
 
 The extension does not request `downloads`, `storage`, or analytics-related permissions.

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Video Screenshot → Clipboard settings</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon48.png" width="48" height="48" alt="">
+        <div>
+          <h1>Video Screenshot → Clipboard</h1>
+          <p>Keyboard shortcut</p>
+        </div>
+      </header>
+
+      <section>
+        <h2>Keys</h2>
+        <p class="hint">Press the first key, then the optional second key. The shortcut is disabled while typing in text fields.</p>
+        <div class="key-row">
+          <label>
+            First key
+            <input id="first-key" maxlength="1" inputmode="text" autocomplete="off" spellcheck="false">
+          </label>
+          <span aria-hidden="true">→</span>
+          <label>
+            Second key <small>(optional)</small>
+            <input id="second-key" maxlength="1" inputmode="text" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+
+        <label class="timeout-label" for="timeout">Maximum delay between keys</label>
+        <select id="timeout">
+          <option value="500">0.5 seconds</option>
+          <option value="700">0.7 seconds</option>
+          <option value="1000">1 second</option>
+          <option value="1500">1.5 seconds</option>
+        </select>
+
+        <div class="preview">Current shortcut: <kbd id="shortcut-preview">V</kbd><span id="preview-separator"> then </span><kbd id="second-preview">S</kbd></div>
+
+        <div class="actions">
+          <button id="save" type="button">Save shortcut</button>
+          <button id="reset" class="secondary" type="button">Reset to V → S</button>
+          <span id="status" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -77,15 +77,76 @@
     );
   }
 
+  function shiftLeftToAvoidRects(left, top, width, height, minimumLeft, occupiedRects, gap = 8) {
+    let candidateLeft = finite(left);
+    const minLeft = finite(minimumLeft);
+    const controlWidth = Math.max(1, finite(width, 1));
+    const controlHeight = Math.max(1, finite(height, 1));
+    const step = controlWidth + Math.max(0, finite(gap));
+    const occupied = Array.isArray(occupiedRects) ? occupiedRects : [];
+
+    for (let attempt = 0; attempt <= occupied.length; attempt++) {
+      const candidate = {
+        left: candidateLeft,
+        top,
+        right: candidateLeft + controlWidth,
+        bottom: top + controlHeight,
+      };
+      if (!occupied.some((rect) => rectsOverlap(candidate, rect))) return candidateLeft;
+      const shifted = Math.max(minLeft, candidateLeft - step);
+      if (shifted === candidateLeft) return candidateLeft;
+      candidateLeft = shifted;
+    }
+    return candidateLeft;
+  }
+
+  function rectsOverlap(a, b) {
+    return Boolean(
+      a && b &&
+      finite(a.right) > finite(b.left) &&
+      finite(a.left) < finite(b.right) &&
+      finite(a.bottom) > finite(b.top) &&
+      finite(a.top) < finite(b.bottom)
+    );
+  }
+
+  function advanceShortcutState(state, pressedKey, keys, now, timeoutMs) {
+    const sequence = Array.isArray(keys) ? keys : [];
+    if (!sequence.length) return { index: 0, lastAt: 0, triggered: false };
+
+    const timestamp = finite(now);
+    const timeout = Math.max(100, finite(timeoutMs, 700));
+    let index = Math.max(0, Math.round(finite(state && state.index)));
+    let lastAt = finite(state && state.lastAt);
+
+    if (index > 0 && timestamp - lastAt > timeout) index = 0;
+
+    if (pressedKey === sequence[index]) {
+      index += 1;
+      if (index === sequence.length) return { index: 0, lastAt: 0, triggered: true };
+      return { index, lastAt: timestamp, triggered: false };
+    }
+
+    if (pressedKey === sequence[0]) {
+      if (sequence.length === 1) return { index: 0, lastAt: 0, triggered: true };
+      return { index: 1, lastAt: timestamp, triggered: false };
+    }
+
+    return { index: 0, lastAt: 0, triggered: false };
+  }
+
   function clamp(value, minimum, maximum) {
     return Math.max(minimum, Math.min(maximum, value));
   }
 
   return {
+    advanceShortcutState,
     clamp,
     computeBitmapCrop,
     fitWithin,
     intersectRect,
     isVideoReady,
+    rectsOverlap,
+    shiftLeftToAvoidRects,
   };
 });

@@ -16,6 +16,7 @@ assert(Array.isArray(manifest.content_scripts) && manifest.content_scripts.lengt
 
 const referencedFiles = new Set([
   manifest.background?.service_worker,
+  manifest.options_ui?.page,
   ...manifest.content_scripts.flatMap((entry) => [...(entry.js || []), ...(entry.css || [])]),
   ...Object.values(manifest.icons || {}),
   ...Object.values(manifest.action?.default_icon || {}),
@@ -26,7 +27,7 @@ for (const relativePath of referencedFiles) {
   assert(info.isFile(), `${relativePath} must be a file`);
 }
 
-for (const script of ["background.js", "content.js", "frame-utils.js"]) {
+for (const script of ["background.js", "content.js", "frame-utils.js", "options.js"]) {
   execFileSync(process.execPath, ["--check", join(extensionDir, script)], { stdio: "inherit" });
 }
 

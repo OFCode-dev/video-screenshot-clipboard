@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "description": "Copy the current frame of any HTML5 video straight to your clipboard.",
   "minimum_chrome_version": "116",
-  "permissions": ["clipboardWrite"],
+  "permissions": ["clipboardWrite", "storage"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js"
@@ -27,6 +27,10 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
   },
   "icons": {
     "16": "icons/icon16.png",

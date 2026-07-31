@@ -1,10 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  advanceShortcutState,
   computeBitmapCrop,
   fitWithin,
   intersectRect,
   isVideoReady,
+  shiftLeftToAvoidRects,
 } = require("../extension/frame-utils.js");
 
 test("intersectRect keeps a fully visible video rectangle", () => {
@@ -60,4 +62,50 @@ test("fitWithin preserves aspect ratio under the canvas limit", () => {
 test("isVideoReady requires decoded dimensions and current data", () => {
   assert.equal(isVideoReady({ videoWidth: 1920, videoHeight: 1080, readyState: 2 }), true);
   assert.equal(isVideoReady({ videoWidth: 0, videoHeight: 0, readyState: 0 }), false);
+});
+
+test("shiftLeftToAvoidRects moves a control away from an occupied corner", () => {
+  const left = shiftLeftToAvoidRects(
+    100,
+    20,
+    38,
+    38,
+    12,
+    [{ left: 112, top: 18, right: 138, bottom: 44 }],
+    8
+  );
+  assert.equal(left, 54);
+});
+
+test("shiftLeftToAvoidRects keeps a free position unchanged", () => {
+  const left = shiftLeftToAvoidRects(
+    100,
+    20,
+    38,
+    38,
+    12,
+    [{ left: 10, top: 100, right: 36, bottom: 126 }],
+    8
+  );
+  assert.equal(left, 100);
+});
+
+test("advanceShortcutState triggers V then S inside the timeout", () => {
+  const first = advanceShortcutState({ index: 0, lastAt: 0 }, "v", ["v", "s"], 1000, 700);
+  assert.deepEqual(first, { index: 1, lastAt: 1000, triggered: false });
+  const second = advanceShortcutState(first, "s", ["v", "s"], 1500, 700);
+  assert.deepEqual(second, { index: 0, lastAt: 0, triggered: true });
+});
+
+test("advanceShortcutState rejects a sequence after the timeout", () => {
+  const first = advanceShortcutState({ index: 0, lastAt: 0 }, "s", ["s", "s"], 1000, 500);
+  const second = advanceShortcutState(first, "s", ["s", "s"], 1700, 500);
+  assert.deepEqual(second, { index: 1, lastAt: 1700, triggered: false });
+});
+
+test("advanceShortcutState supports a single key", () => {
+  assert.deepEqual(
+    advanceShortcutState({ index: 0, lastAt: 0 }, "p", ["p"], 1000, 700),
+    { index: 0, lastAt: 0, triggered: true }
+  );
 });

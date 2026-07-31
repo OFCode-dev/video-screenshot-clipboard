@@ -16,23 +16,32 @@
   const BUTTON_SIZE = 38;
   const BUTTON_INSET = 12;
   const MAX_CANVAS_DIMENSION = 16384;
+  const DEFAULT_SHORTCUT_KEYS = ["v", "s"];
+  const DEFAULT_SHORTCUT_TIMEOUT_MS = 700;
   const records = new Map();
   const observedRoots = new WeakSet();
   let layoutFrame = 0;
   let toastTimer = 0;
-
-  const intersectionObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      const record = records.get(entry.target);
-      if (record) record.intersecting = entry.isIntersecting;
-    }
-    scheduleLayout();
-  }, { threshold: 0.01 });
+  let shortcutKeys = DEFAULT_SHORTCUT_KEYS;
+  let shortcutTimeoutMs = DEFAULT_SHORTCUT_TIMEOUT_MS;
+  let shortcutState = { index: 0, lastAt: 0 };
 
   const resizeObserver = new ResizeObserver(() => scheduleLayout());
 
   observeRoot(document);
   scanRoot(document);
+  loadShortcutSettings();
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "sync") return;
+    if (changes.vscShortcutKeys) shortcutKeys = sanitizeShortcutKeys(changes.vscShortcutKeys.newValue);
+    if (changes.vscShortcutTimeoutMs) {
+      shortcutTimeoutMs = sanitizeShortcutTimeout(changes.vscShortcutTimeoutMs.newValue);
+    }
+    shortcutState = { index: 0, lastAt: 0 };
+  });
+
+  document.addEventListener("keydown", handleShortcutKey, true);
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type !== "VSC_CAPTURE_PRIMARY" || window.top !== window) return false;
@@ -102,10 +111,8 @@
       host,
       button,
       busy: false,
-      intersecting: true,
     };
     records.set(video, record);
-    intersectionObserver.observe(video);
     resizeObserver.observe(video);
 
     video.addEventListener("play", scheduleLayout);
@@ -132,6 +139,7 @@
   }
 
   function updateLayouts() {
+    const occupiedControlRects = findForeignScreenshotControlRects();
     for (const record of records.values()) {
       const { video, host } = record;
       if (!video.isConnected) continue;
@@ -142,9 +150,9 @@
       // sites place a pointer-events layer above decorative or lazy videos,
       // so neither hover nor the media's paused state is a reliable signal
       // that the user can see the video.
-      const shouldShow = largeEnough && onScreen && record.intersecting;
+      const shouldShow = largeEnough && onScreen;
 
-      const left = Utils.clamp(
+      const baseLeft = Utils.clamp(
         rect.right - BUTTON_SIZE - BUTTON_INSET,
         BUTTON_INSET,
         Math.max(BUTTON_INSET, innerWidth - BUTTON_SIZE - BUTTON_INSET)
@@ -154,9 +162,38 @@
         BUTTON_INSET,
         Math.max(BUTTON_INSET, innerHeight - BUTTON_SIZE - BUTTON_INSET)
       );
+      const minimumLeft = Math.max(BUTTON_INSET, rect.left + BUTTON_INSET);
+      const left = Utils.shiftLeftToAvoidRects(
+        baseLeft,
+        top,
+        BUTTON_SIZE,
+        BUTTON_SIZE,
+        minimumLeft,
+        occupiedControlRects
+      );
       host.style.setProperty("transform", `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`, "important");
       host.classList.toggle("vsc-visible", shouldShow);
     }
+  }
+
+  function findForeignScreenshotControlRects() {
+    const controls = document.querySelectorAll(
+      ".ssbtn-default, .ssbtn-youtube, .ssbtn-vimeo, [class*='ssbtn-']"
+    );
+    const rects = [];
+    for (const control of controls) {
+      if (control.closest("[data-vsc-owned]")) continue;
+      const rect = control.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        rects.push({
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+        });
+      }
+    }
+    return rects;
   }
 
   function relocateOverlays() {
@@ -172,7 +209,6 @@
   function removeDisconnectedVideos() {
     for (const [video, record] of records) {
       if (video.isConnected) continue;
-      intersectionObserver.unobserve(video);
       resizeObserver.unobserve(video);
       record.host.remove();
       records.delete(video);
@@ -183,7 +219,7 @@
     let winner = null;
     let winnerArea = 0;
     for (const record of records.values()) {
-      if (!record.video.isConnected || !record.intersecting) continue;
+      if (!record.video.isConnected) continue;
       const rect = record.video.getBoundingClientRect();
       const visible = Utils.intersectRect(rect, innerWidth, innerHeight);
       const area = visible.width * visible.height;
@@ -193,6 +229,73 @@
       }
     }
     return winner;
+  }
+
+  async function loadShortcutSettings() {
+    try {
+      const settings = await chrome.storage.sync.get({
+        vscShortcutKeys: DEFAULT_SHORTCUT_KEYS,
+        vscShortcutTimeoutMs: DEFAULT_SHORTCUT_TIMEOUT_MS,
+      });
+      shortcutKeys = sanitizeShortcutKeys(settings.vscShortcutKeys);
+      shortcutTimeoutMs = sanitizeShortcutTimeout(settings.vscShortcutTimeoutMs);
+    } catch (_) {
+      shortcutKeys = DEFAULT_SHORTCUT_KEYS;
+      shortcutTimeoutMs = DEFAULT_SHORTCUT_TIMEOUT_MS;
+    }
+  }
+
+  function handleShortcutKey(event) {
+    if (
+      event.defaultPrevented ||
+      event.repeat ||
+      event.isComposing ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      isEditableTarget(event.target)
+    ) return;
+
+    const key = String(event.key || "").toLowerCase();
+    if (!/^[a-z0-9]$/.test(key)) {
+      shortcutState = { index: 0, lastAt: 0 };
+      return;
+    }
+
+    const next = Utils.advanceShortcutState(
+      shortcutState,
+      key,
+      shortcutKeys,
+      Date.now(),
+      shortcutTimeoutMs
+    );
+    shortcutState = { index: next.index, lastAt: next.lastAt };
+    if (!next.triggered) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const record = findPrimaryVideo();
+    if (record) copyCurrentFrame(record);
+    else showToast("No visible video found", true);
+  }
+
+  function isEditableTarget(target) {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])"));
+  }
+
+  function sanitizeShortcutKeys(value) {
+    const keys = Array.isArray(value) ? value : DEFAULT_SHORTCUT_KEYS;
+    const valid = keys
+      .map((key) => String(key || "").toLowerCase())
+      .filter((key) => /^[a-z0-9]$/.test(key))
+      .slice(0, 2);
+    return valid.length ? valid : DEFAULT_SHORTCUT_KEYS;
+  }
+
+  function sanitizeShortcutTimeout(value) {
+    const timeout = Number(value);
+    return [500, 700, 1000, 1500].includes(timeout) ? timeout : DEFAULT_SHORTCUT_TIMEOUT_MS;
   }
 
   async function copyCurrentFrame(record) {
