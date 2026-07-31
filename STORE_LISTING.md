@@ -2,7 +2,7 @@
 
 ## Name
 
-Video Screenshot → Clipboard
+Frame Screenshot → Clipboard
 
 ## Short description
 

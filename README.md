@@ -1,4 +1,4 @@
-# Video Screenshot → Clipboard
+# Frame Screenshot → Clipboard
 
 Copy the current frame of an HTML5 video straight to your clipboard. Hover a video, click the camera button, then paste the PNG anywhere—no editor, download, account, analytics, or server.
 
@@ -6,7 +6,7 @@ This is the third extension in the OFCode screenshot-to-clipboard family:
 
 - [Quick Screenshot → Clipboard](https://github.com/OFCode-dev/quick-screenshot-clipboard) — visible tab
 - [Stitch Screenshot → Clipboard](https://github.com/OFCode-dev/stitch-screenshot-clipboard) — scrolling page
-- **Video Screenshot → Clipboard** — current video frame
+- **Frame Screenshot → Clipboard** — current video frame
 
 ## How it works
 
@@ -38,7 +38,11 @@ For a deterministic local video, run `npm run serve:fixture` and open `http://12
 | `storage` | Syncs the user's shortcut keys and timing preference. |
 | Access to HTTP(S) pages | Detects videos automatically and enables the visible-tab fallback when direct canvas capture is blocked. |
 
-The extension does not request `downloads`, `storage`, or analytics-related permissions.
+The extension does not request `downloads` or analytics-related permissions.
+
+## The screenshot family
+
+**Frame** is the turquoise third sibling: Quick captures the visible tab, Stitch (fuchsia) captures the full page, and Frame captures the exact moment in a video. Its video-player, blue lens, and clipboard badge share the same soft 3D visual language without reusing either sibling's composition.
 
 ## Development
 

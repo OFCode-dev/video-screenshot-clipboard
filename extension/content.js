@@ -1,4 +1,4 @@
-// Video Screenshot → Clipboard — content script.
+// Frame Screenshot → Clipboard — content script.
 // Finds HTML5 videos (including videos added by SPA navigation), places a
 // small copy button over each visible player, and copies the current frame as
 // PNG. Direct canvas capture preserves native video resolution. A visible-tab

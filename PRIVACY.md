@@ -2,7 +2,7 @@
 
 **Last updated: July 31, 2026**
 
-Video Screenshot → Clipboard does not collect, store, sell, or transmit personal data.
+Frame Screenshot → Clipboard does not collect, store, sell, or transmit personal data.
 
 The extension processes the current frame of an HTML5 video locally in your browser after you click its in-player copy button. The resulting PNG is written only to your operating system clipboard. It is not uploaded to a server and is not saved as a file by the extension.
 

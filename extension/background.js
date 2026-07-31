@@ -1,4 +1,4 @@
-// Video Screenshot → Clipboard — Manifest V3 service worker.
+// Frame Screenshot → Clipboard — Manifest V3 service worker.
 // The content script captures origin-clean video frames itself. This worker
 // only supplies the visible-tab fallback used when a cross-origin canvas is
 // blocked by the page.
