@@ -117,6 +117,8 @@
     video.addEventListener("pointerdown", () => reveal(record, 2400), true);
     video.addEventListener("play", () => reveal(record, 3600));
     video.addEventListener("playing", () => reveal(record, 3600));
+    video.addEventListener("pause", scheduleLayout);
+    video.addEventListener("ended", scheduleLayout);
     video.addEventListener("loadedmetadata", () => reveal(record, 2600));
     video.addEventListener("emptied", scheduleLayout);
 
@@ -182,7 +184,13 @@
         largeEnough &&
         onScreen &&
         record.intersecting &&
-        (record.busy || record.hovering || record.buttonFocused || record.revealUntil > now)
+        (
+          record.busy ||
+          record.hovering ||
+          record.buttonFocused ||
+          record.revealUntil > now ||
+          (!video.paused && !video.ended)
+        )
       );
 
       const left = Utils.clamp(

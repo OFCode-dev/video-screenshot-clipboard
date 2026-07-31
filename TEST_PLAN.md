@@ -3,6 +3,7 @@
 ## Core flow
 
 - [ ] Camera button appears after video metadata loads and when the video is hovered.
+- [ ] Camera button stays visible on an autoplaying background video even when another page layer covers the video.
 - [ ] Clicking the button copies a PNG without downloading a file.
 - [ ] Clicking the toolbar icon captures the largest visible top-level video.
 - [ ] Pasting into Preview/Paint, Slack, Figma, ChatGPT, and a document works.

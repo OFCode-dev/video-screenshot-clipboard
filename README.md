@@ -11,7 +11,7 @@ This is the third extension in the OFCode screenshot-to-clipboard family:
 ## How it works
 
 1. The extension detects visible HTML5 `<video>` elements, including videos added later by single-page apps.
-2. A small camera button appears over a video when it loads, starts playing, or is hovered.
+2. A small camera button remains visible while a video is playing and also appears when a paused video is hovered.
 3. Clicking the button first draws the decoded frame to a canvas at the video's native resolution.
 4. If the page blocks that canvas as cross-origin, the extension captures the visible tab and crops it to the video rectangle.
 5. The PNG is written to the clipboard. It is never downloaded or uploaded.
