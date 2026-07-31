@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Video Screenshot Clipboard Test Fixture</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { margin: 0; min-height: 140vh; background: #0f172a; color: #e2e8f0; }
+      main { width: min(900px, calc(100% - 32px)); margin: 40px auto; }
+      video { width: 100%; aspect-ratio: 16/9; display: block; border-radius: 16px; background: #020617; }
+      p { color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Synthetic HTML5 video</h1>
+      <p>The canvas below is streamed into a real video element without network access.</p>
+      <video id="video" autoplay muted playsinline></video>
+    </main>
+    <canvas id="source" width="1280" height="720" hidden></canvas>
+    <script>
+      const canvas = document.getElementById("source");
+      const context = canvas.getContext("2d");
+      const video = document.getElementById("video");
+      const stream = canvas.captureStream(30);
+      video.srcObject = stream;
+      video.play();
+
+      function draw(time) {
+        const hue = (time / 40) % 360;
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, `hsl(${hue} 80% 45%)`);
+        gradient.addColorStop(1, `hsl(${(hue + 90) % 360} 80% 30%)`);
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "rgba(255,255,255,.94)";
+        context.font = "700 72px system-ui";
+        context.textAlign = "center";
+        context.fillText("VIDEO FRAME", canvas.width / 2, canvas.height / 2 - 20);
+        context.font = "500 40px ui-monospace, monospace";
+        context.fillText(new Date().toISOString(), canvas.width / 2, canvas.height / 2 + 65);
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    </script>
+  </body>
+</html>

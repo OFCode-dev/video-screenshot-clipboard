@@ -1,0 +1,15 @@
+{
+  "name": "video-screenshot-clipboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Copy the current HTML5 video frame to the clipboard from an in-player button.",
+  "scripts": {
+    "icons": "node tools/generate-icons.mjs",
+    "test": "node --test tests/*.test.js",
+    "validate": "node tools/validate-extension.mjs",
+    "check": "npm run validate && npm test",
+    "package": "node tools/package-extension.mjs",
+    "serve:fixture": "node tools/serve-fixture.mjs"
+  },
+  "license": "MIT"
+}
