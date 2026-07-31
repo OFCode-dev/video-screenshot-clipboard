@@ -18,10 +18,17 @@
   const MAX_CANVAS_DIMENSION = 16384;
   const DEFAULT_SHORTCUT_KEYS = ["v", "s"];
   const DEFAULT_SHORTCUT_TIMEOUT_MS = 700;
+  const FRAME_STATUS_HEARTBEAT_MS = 2000;
+  const FRAME_BRIDGE_ID = `frame-screenshot:${chrome.runtime.id}`;
   const records = new Map();
   const observedRoots = new WeakSet();
+  const searchableRoots = new Set();
+  const geometryResolvers = new Map();
+  const geometryForwarders = new Map();
   let layoutFrame = 0;
   let toastTimer = 0;
+  let lastFrameStatus = "";
+  let lastFrameStatusAt = 0;
   let shortcutKeys = DEFAULT_SHORTCUT_KEYS;
   let shortcutTimeoutMs = DEFAULT_SHORTCUT_TIMEOUT_MS;
   let shortcutState = { index: 0, lastAt: 0 };
@@ -31,6 +38,7 @@
   observeRoot(document);
   scanRoot(document);
   loadShortcutSettings();
+  setInterval(scheduleLayout, FRAME_STATUS_HEARTBEAT_MS);
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "sync") return;
@@ -42,9 +50,10 @@
   });
 
   document.addEventListener("keydown", handleShortcutKey, true);
+  addEventListener("message", handleFrameBridgeMessage);
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== "VSC_CAPTURE_PRIMARY" || window.top !== window) return false;
+    if (message?.type !== "VSC_CAPTURE_PRIMARY") return false;
     const record = findPrimaryVideo();
     if (!record) {
       sendResponse({ ok: false, error: "No visible video" });
@@ -78,6 +87,7 @@
   function observeRoot(root) {
     if (!root || observedRoots.has(root)) return;
     observedRoots.add(root);
+    searchableRoots.add(root);
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
@@ -140,6 +150,7 @@
 
   function updateLayouts() {
     const occupiedControlRects = findForeignScreenshotControlRects();
+    let largestVisibleArea = 0;
     for (const record of records.values()) {
       const { video, host } = record;
       if (!video.isConnected) continue;
@@ -151,6 +162,10 @@
       // so neither hover nor the media's paused state is a reliable signal
       // that the user can see the video.
       const shouldShow = largeEnough && onScreen;
+      if (shouldShow) {
+        const visible = Utils.intersectRect(rect, innerWidth, innerHeight);
+        largestVisibleArea = Math.max(largestVisibleArea, visible.width * visible.height);
+      }
 
       const baseLeft = Utils.clamp(
         rect.right - BUTTON_SIZE - BUTTON_INSET,
@@ -174,6 +189,21 @@
       host.style.setProperty("transform", `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`, "important");
       host.classList.toggle("vsc-visible", shouldShow);
     }
+    publishFrameStatus(largestVisibleArea);
+  }
+
+  function publishFrameStatus(area) {
+    const roundedArea = Math.max(0, Math.round(area / 1000) * 1000);
+    const status = String(roundedArea);
+    const now = Date.now();
+    if (status === lastFrameStatus && now - lastFrameStatusAt < 2000) return;
+    lastFrameStatus = status;
+    lastFrameStatusAt = now;
+    chrome.runtime.sendMessage({
+      type: "VSC_FRAME_STATUS",
+      area: roundedArea,
+      hasVideo: roundedArea > 0,
+    }).catch(() => undefined);
   }
 
   function findForeignScreenshotControlRects() {
@@ -353,16 +383,10 @@
   }
 
   async function captureVisibleVideo(video) {
-    // A child frame's rectangle is relative to that frame, while
-    // captureVisibleTab returns the top-level viewport. Direct capture still
-    // works in frames; only the cross-origin fallback is top-frame-only.
-    if (window.top !== window) {
-      throw new Error("Cross-origin video frames inside embedded players are not supported yet");
-    }
-
-    const rect = video.getBoundingClientRect();
-    const viewportWidth = innerWidth;
-    const viewportHeight = innerHeight;
+    const geometry = await getTopLevelGeometry(video.getBoundingClientRect());
+    const rect = geometry.rect;
+    const viewportWidth = geometry.viewportWidth;
+    const viewportHeight = geometry.viewportHeight;
     const visible = Utils.intersectRect(rect, viewportWidth, viewportHeight);
     if (visible.width < 2 || visible.height < 2) {
       throw new Error("The video is outside the visible viewport");
@@ -408,6 +432,121 @@
     } finally {
       setOverlaysCaptureHidden(false);
     }
+  }
+
+  function getTopLevelGeometry(rect) {
+    const serialized = serializeRect(rect);
+    if (window.top === window) {
+      return Promise.resolve({
+        rect: serialized,
+        viewportWidth: innerWidth,
+        viewportHeight: innerHeight,
+      });
+    }
+
+    const requestId = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        geometryResolvers.delete(requestId);
+        reject(new Error("Could not locate the embedded video in the top-level page"));
+      }, 1800);
+      geometryResolvers.set(requestId, { resolve, timer });
+      window.parent.postMessage({
+        bridge: FRAME_BRIDGE_ID,
+        type: "VSC_GEOMETRY_REQUEST",
+        requestId,
+        rect: serialized,
+      }, "*");
+    });
+  }
+
+  function handleFrameBridgeMessage(event) {
+    const message = event.data;
+    if (!message || message.bridge !== FRAME_BRIDGE_ID || !message.requestId) return;
+
+    if (message.type === "VSC_GEOMETRY_REQUEST") {
+      const frame = findFrameForWindow(event.source);
+      if (!frame) return;
+      const frameRect = frame.getBoundingClientRect();
+      const style = getComputedStyle(frame);
+      const borderLeft = parseFloat(style.borderLeftWidth) || 0;
+      const borderTop = parseFloat(style.borderTopWidth) || 0;
+      const translated = Utils.translateRectThroughFrame(
+        message.rect,
+        frameRect,
+        frame.clientWidth,
+        frame.clientHeight,
+        borderLeft,
+        borderTop
+      );
+
+      if (window.top === window) {
+        event.source.postMessage({
+          bridge: FRAME_BRIDGE_ID,
+          type: "VSC_GEOMETRY_RESULT",
+          requestId: message.requestId,
+          rect: translated,
+          viewportWidth: innerWidth,
+          viewportHeight: innerHeight,
+        }, "*");
+      } else {
+        geometryForwarders.set(message.requestId, event.source);
+        window.parent.postMessage({
+          bridge: FRAME_BRIDGE_ID,
+          type: "VSC_GEOMETRY_REQUEST",
+          requestId: message.requestId,
+          rect: translated,
+        }, "*");
+      }
+      return;
+    }
+
+    if (message.type !== "VSC_GEOMETRY_RESULT" || event.source !== window.parent) return;
+    const child = geometryForwarders.get(message.requestId);
+    if (child) {
+      geometryForwarders.delete(message.requestId);
+      child.postMessage(message, "*");
+      return;
+    }
+
+    const resolver = geometryResolvers.get(message.requestId);
+    if (!resolver) return;
+    geometryResolvers.delete(message.requestId);
+    clearTimeout(resolver.timer);
+    resolver.resolve({
+      rect: serializeRect(message.rect),
+      viewportWidth: Number(message.viewportWidth) || innerWidth,
+      viewportHeight: Number(message.viewportHeight) || innerHeight,
+    });
+  }
+
+  function findFrameForWindow(sourceWindow) {
+    for (const root of searchableRoots) {
+      for (const frame of root.querySelectorAll("iframe, frame")) {
+        try {
+          if (frame.contentWindow === sourceWindow) return frame;
+        } catch (_) {
+          // A cross-origin WindowProxy can still be compared by identity; if
+          // a browser rejects access entirely, continue with the next frame.
+        }
+      }
+    }
+    return null;
+  }
+
+  function serializeRect(rect) {
+    const left = Number(rect?.left) || 0;
+    const top = Number(rect?.top) || 0;
+    const right = Number(rect?.right) || left;
+    const bottom = Number(rect?.bottom) || top;
+    return {
+      left,
+      top,
+      right,
+      bottom,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
   }
 
   function setOverlaysCaptureHidden(hidden) {
@@ -479,9 +618,10 @@
       return "Could not write the video frame to the clipboard";
     }
     if (/loaded a frame|video.*load/i.test(message)) return "Wait until the video has loaded, then try again";
-    if (/cross-origin|protected|security|tainted/i.test(message)) {
-      return "This embedded or protected video cannot be captured";
+    if (/protected|security|tainted/i.test(message)) {
+      return "This protected video cannot be captured";
     }
+    if (/embedded video|top-level page/i.test(message)) return "Could not locate this embedded video";
     if (/outside the visible/i.test(message)) return "Bring the video into view, then try again";
     return "Could not copy this video frame";
   }

@@ -56,6 +56,26 @@
     };
   }
 
+  function translateRectThroughFrame(rect, frameRect, contentWidth, contentHeight, borderLeft = 0, borderTop = 0) {
+    const frameLeft = finite(frameRect && frameRect.left) + Math.max(0, finite(borderLeft));
+    const frameTop = finite(frameRect && frameRect.top) + Math.max(0, finite(borderTop));
+    const frameRight = frameLeft + Math.max(0, finite(contentWidth));
+    const frameBottom = frameTop + Math.max(0, finite(contentHeight));
+    const left = Math.max(frameLeft, frameLeft + finite(rect && rect.left));
+    const top = Math.max(frameTop, frameTop + finite(rect && rect.top));
+    const right = Math.min(frameRight, frameLeft + finite(rect && rect.right));
+    const bottom = Math.min(frameBottom, frameTop + finite(rect && rect.bottom));
+
+    return {
+      left,
+      top,
+      right: Math.max(left, right),
+      bottom: Math.max(top, bottom),
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
+  }
+
   function fitWithin(width, height, maxDimension) {
     const w = Math.max(1, Math.round(finite(width, 1)));
     const h = Math.max(1, Math.round(finite(height, 1)));
@@ -148,5 +168,6 @@
     isVideoReady,
     rectsOverlap,
     shiftLeftToAvoidRects,
+    translateRectThroughFrame,
   };
 });

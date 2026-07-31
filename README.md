@@ -10,13 +10,13 @@ This is the third extension in the OFCode screenshot-to-clipboard family:
 
 ## How it works
 
-1. The extension detects visible HTML5 `<video>` elements, including videos added later by single-page apps.
+1. The extension detects visible HTML5 `<video>` elements, including looped “moving photos,” videos added later by single-page apps, and players nested in open shadow roots or embedded frames.
 2. A small camera button remains visible on every sufficiently large video currently in view.
 3. Clicking the button first draws the decoded frame to a canvas at the video's native resolution.
-4. If the page blocks that canvas as cross-origin, the extension captures the visible tab and crops it to the video rectangle.
+4. If the page blocks that canvas as cross-origin, the extension captures the visible tab, translates nested-frame coordinates to the top-level viewport, and crops the exact video rectangle.
 5. The PNG is written to the clipboard. It is never downloaded or uploaded.
 
-The toolbar icon provides a second route: clicking it captures the largest visible video in the top-level page.
+The toolbar icon provides a second route: clicking it captures the largest visible video across the top-level page and its embedded players.
 
 The default page shortcut is **V then S** within 0.7 seconds. Open the extension's Options page to choose a two-key sequence such as **S then S**, a single key such as **P**, or a different timing window. Shortcuts are ignored while typing in editable fields.
 
@@ -57,7 +57,6 @@ The store-ready ZIP is written to `dist/`.
 ## Known limitations
 
 - DRM/EME-protected video may produce a black or unavailable frame by browser design.
-- Direct capture works inside frames, but the visible-tab fallback cannot yet crop a nested cross-origin iframe accurately.
 - Browser-internal pages and the Chrome Web Store do not allow content scripts.
 - A native video element used directly as the fullscreen element cannot host the overlay; fullscreen player containers such as YouTube's are supported.
 

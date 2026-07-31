@@ -4,8 +4,10 @@
 // blocked by the page.
 
 const CAPTURE_INTERVAL_MS = 550;
+const FRAME_STATUS_TTL_MS = 5000;
 let lastCaptureAt = 0;
 let captureQueue = Promise.resolve();
+const frameCandidates = new Map();
 
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab || !Number.isInteger(tab.id) || !/^https?:/.test(tab.url || "")) {
@@ -14,7 +16,9 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "VSC_CAPTURE_PRIMARY" });
+    const frameId = selectCaptureFrame(tab.id);
+    const options = Number.isInteger(frameId) ? { frameId } : undefined;
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "VSC_CAPTURE_PRIMARY" }, options);
     if (!response?.ok) await flashBadge("error");
   } catch (_) {
     await flashBadge("error");
@@ -22,6 +26,11 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "VSC_FRAME_STATUS") {
+    rememberFrameStatus(message, sender);
+    return false;
+  }
+
   if (message?.type === "VSC_CAPTURE_VISIBLE") {
     captureQueue = captureQueue
       .catch(() => undefined)
@@ -39,6 +48,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+
+chrome.tabs.onRemoved.addListener((tabId) => frameCandidates.delete(tabId));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "loading") frameCandidates.delete(tabId);
+});
+
+function rememberFrameStatus(message, sender) {
+  const tabId = sender.tab?.id;
+  const frameId = sender.frameId;
+  if (!Number.isInteger(tabId) || !Number.isInteger(frameId)) return;
+
+  let candidates = frameCandidates.get(tabId);
+  if (!candidates) {
+    candidates = new Map();
+    frameCandidates.set(tabId, candidates);
+  }
+  if (!message.hasVideo || !(Number(message.area) > 0)) {
+    candidates.delete(frameId);
+    return;
+  }
+  candidates.set(frameId, {
+    area: Number(message.area),
+    seenAt: Date.now(),
+  });
+}
+
+function selectCaptureFrame(tabId) {
+  const candidates = frameCandidates.get(tabId);
+  if (!candidates) return 0;
+
+  const now = Date.now();
+  let winnerFrameId = 0;
+  let winnerArea = 0;
+  for (const [frameId, candidate] of candidates) {
+    if (now - candidate.seenAt > FRAME_STATUS_TTL_MS) {
+      candidates.delete(frameId);
+      continue;
+    }
+    if (candidate.area > winnerArea) {
+      winnerArea = candidate.area;
+      winnerFrameId = frameId;
+    }
+  }
+  return winnerFrameId;
+}
 
 async function captureVisibleForSender(sender) {
   const sourceTab = sender.tab;

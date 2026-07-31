@@ -7,6 +7,7 @@ const {
   intersectRect,
   isVideoReady,
   shiftLeftToAvoidRects,
+  translateRectThroughFrame,
 } = require("../extension/frame-utils.js");
 
 test("intersectRect keeps a fully visible video rectangle", () => {
@@ -43,6 +44,32 @@ test("computeBitmapCrop rejects a video outside the viewport", () => {
   assert.throws(
     () => computeBitmapCrop(800, 600, 800, 600, { left: 900, top: 0, right: 1000, bottom: 100 }),
     /outside the visible viewport/
+  );
+});
+
+test("translateRectThroughFrame accumulates iframe position and borders", () => {
+  assert.deepEqual(
+    translateRectThroughFrame(
+      { left: 10, top: 20, right: 310, bottom: 190 },
+      { left: 100, top: 50 },
+      640,
+      360,
+      2,
+      3
+    ),
+    { left: 112, top: 73, right: 412, bottom: 243, width: 300, height: 170 }
+  );
+});
+
+test("translateRectThroughFrame clips media to iframe content bounds", () => {
+  assert.deepEqual(
+    translateRectThroughFrame(
+      { left: -20, top: 10, right: 700, bottom: 500 },
+      { left: 100, top: 50 },
+      640,
+      360
+    ),
+    { left: 100, top: 60, right: 740, bottom: 410, width: 640, height: 350 }
   );
 });
 
