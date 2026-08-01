@@ -53,6 +53,16 @@
   addEventListener("message", handleFrameBridgeMessage);
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === "VSC_CLIPBOARD_WRITE") {
+      // Relayed by the service worker for a frame that may not reach the
+      // clipboard itself. Only the top frame is ever the focused document.
+      if (window.top !== window) return false;
+      writePngHere(dataUrlToBlob(message.dataUrl))
+        .then(() => sendResponse({ ok: true }))
+        .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
+      return true;
+    }
+
     if (message?.type !== "VSC_CAPTURE_PRIMARY") return false;
     const record = findPrimaryVideo();
     if (!record) {
@@ -592,14 +602,36 @@
     }
   }
 
+  // navigator.clipboard.write() only succeeds in a focused document, which rules
+  // out the service worker and offscreen documents entirely. The page itself is
+  // focused while its own button is clicked, so it writes the frame directly. A
+  // cross-origin iframe is blocked by Permissions Policy instead of by focus, so
+  // it hands the PNG to the top frame through the service worker.
   async function writePngToClipboard(blob) {
-    const dataUrl = await blobToDataUrl(blob);
-    const response = await chrome.runtime.sendMessage({
-      type: "VSC_COPY_PNG",
-      dataUrl,
-    });
-    if (!response?.ok) {
-      throw new Error(response?.error || "Image clipboard write failed");
+    try {
+      await writePngHere(blob);
+      return;
+    } catch (localError) {
+      if (window.top === window) throw localError;
+
+      const dataUrl = await blobToDataUrl(blob);
+      const response = await chrome.runtime.sendMessage({ type: "VSC_COPY_PNG", dataUrl });
+      if (!response?.ok) {
+        throw new Error(
+          `clipboard/top-frame: ${response?.error || "no response"} — ${localError.message}`
+        );
+      }
+    }
+  }
+
+  async function writePngHere(blob) {
+    if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+      throw new Error("clipboard/local: the Clipboard API is unavailable in this document");
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    } catch (error) {
+      throw new Error(`clipboard/local: ${error?.name || "Error"}: ${error?.message || error}`);
     }
   }
 

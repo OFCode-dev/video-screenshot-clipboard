@@ -1,15 +1,13 @@
 // Frame Screenshot → Clipboard — Manifest V3 service worker.
 // The content script captures origin-clean video frames itself. This worker
-// only supplies the visible-tab fallback used when a cross-origin canvas is
-// blocked by the page.
+// supplies the visible-tab fallback used when a cross-origin canvas is blocked
+// by the page, and relays clipboard writes from frames to the tab's top frame.
 
 const CAPTURE_INTERVAL_MS = 550;
 const FRAME_STATUS_TTL_MS = 5000;
-const OFFSCREEN_PATH = "offscreen.html";
 let lastCaptureAt = 0;
 let captureQueue = Promise.resolve();
 let clipboardQueue = Promise.resolve();
-let creatingOffscreen = null;
 const frameCandidates = new Map();
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -48,7 +46,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "VSC_COPY_PNG") {
     clipboardQueue = clipboardQueue
       .catch(() => undefined)
-      .then(() => copyPngInOffscreen(message.dataUrl));
+      .then(() => copyPngInTopFrame(message.dataUrl, sender));
 
     clipboardQueue
       .then(() => sendResponse({ ok: true }))
@@ -126,37 +124,24 @@ async function captureVisibleForSender(sender) {
   return chrome.tabs.captureVisibleTab(sourceTab.windowId, { format: "png" });
 }
 
-async function copyPngInOffscreen(dataUrl) {
+// Writing an image to the clipboard requires a focused document. Neither this
+// worker nor an offscreen document can ever be focused, so a frame that cannot
+// reach the clipboard itself is relayed to the top frame of its own tab, which
+// is focused while the user clicks the capture button.
+async function copyPngInTopFrame(dataUrl, sender) {
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) {
     throw new Error("Invalid PNG data");
   }
-  await ensureOffscreenDocument();
-  const response = await chrome.runtime.sendMessage({
-    target: "offscreen",
-    type: "VSC_OFFSCREEN_COPY_PNG",
-    dataUrl,
-  });
+
+  const tabId = sender?.tab?.id;
+  if (!Number.isInteger(tabId)) throw new Error("The requesting tab is gone");
+
+  const response = await chrome.tabs.sendMessage(
+    tabId,
+    { type: "VSC_CLIPBOARD_WRITE", dataUrl },
+    { frameId: 0 }
+  );
   if (!response?.ok) throw new Error(response?.error || "Clipboard write failed");
-}
-
-async function ensureOffscreenDocument() {
-  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
-  const contexts = await chrome.runtime.getContexts({
-    contextTypes: ["OFFSCREEN_DOCUMENT"],
-    documentUrls: [offscreenUrl],
-  });
-  if (contexts.length > 0) return;
-
-  if (!creatingOffscreen) {
-    creatingOffscreen = chrome.offscreen.createDocument({
-      url: OFFSCREEN_PATH,
-      reasons: ["CLIPBOARD"],
-      justification: "Copy a user-requested video frame PNG to the clipboard.",
-    }).finally(() => {
-      creatingOffscreen = null;
-    });
-  }
-  await creatingOffscreen;
 }
 
 async function flashBadge(status) {

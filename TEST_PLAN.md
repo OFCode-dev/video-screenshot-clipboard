@@ -13,7 +13,7 @@
 - [ ] Pasting into Preview/Paint, Slack, Figma, ChatGPT, and a document works.
 - [ ] Success toast and green `✓` badge appear.
 - [ ] Clipboard denial shows a clear error and red `!` badge.
-- [ ] A cross-origin iframe with clipboard Permissions Policy disabled still copies through the offscreen document.
+- [ ] A cross-origin iframe that cannot reach the clipboard itself still copies, by handing the PNG to the top frame.
 
 ## Video states
 

@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "description": "Copy the current frame of any HTML5 video straight to your clipboard.",
   "minimum_chrome_version": "116",
-  "permissions": ["clipboardWrite", "offscreen", "storage"],
+  "permissions": ["clipboardWrite", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
