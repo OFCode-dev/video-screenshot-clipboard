@@ -8,6 +8,12 @@
 }
 
 .vsc-overlay-host {
+  /* `all: initial` leaves top/left auto, which anchors a fixed element to its
+     static position — the end of the document. On a long page that puts the
+     control thousands of pixels below the video, so pin it to the viewport
+     origin and let the transform place it. */
+  top: 0 !important;
+  left: 0 !important;
   width: 38px !important;
   height: 38px !important;
   pointer-events: none !important;
@@ -17,6 +23,18 @@
 }
 
 .vsc-overlay-host.vsc-visible {
+  opacity: 1 !important;
+}
+
+/* Decorative background videos keep a faint control until the pointer or
+   keyboard focus reaches them, so the page stays uncluttered. */
+.vsc-overlay-host.vsc-visible.vsc-ambient {
+  opacity: 0.3 !important;
+}
+
+.vsc-overlay-host.vsc-visible.vsc-ambient.vsc-awake,
+.vsc-overlay-host.vsc-visible.vsc-ambient:focus-within,
+.vsc-overlay-host.vsc-visible.vsc-ambient:has(.vsc-copy-button:hover) {
   opacity: 1 !important;
 }
 

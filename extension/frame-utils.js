@@ -120,6 +120,33 @@
     return candidateLeft;
   }
 
+  // Sites pin headers and banners over the top of a full-bleed video, so a
+  // control anchored to the video's top edge lands on the site chrome instead
+  // of on the video. Pushing it below those rectangles keeps it on the frame.
+  function shiftBelowRects(top, left, width, height, maximumTop, occupiedRects, gap = 8) {
+    let candidateTop = finite(top);
+    const maxTop = finite(maximumTop);
+    const controlWidth = Math.max(1, finite(width, 1));
+    const controlHeight = Math.max(1, finite(height, 1));
+    const spacing = Math.max(0, finite(gap));
+    const occupied = Array.isArray(occupiedRects) ? occupiedRects : [];
+
+    for (let attempt = 0; attempt <= occupied.length; attempt++) {
+      const candidate = {
+        left: finite(left),
+        top: candidateTop,
+        right: finite(left) + controlWidth,
+        bottom: candidateTop + controlHeight,
+      };
+      const blocking = occupied.find((rect) => rectsOverlap(candidate, rect));
+      if (!blocking) return candidateTop;
+      const shifted = Math.min(maxTop, finite(blocking.bottom) + spacing);
+      if (shifted <= candidateTop) return candidateTop;
+      candidateTop = shifted;
+    }
+    return candidateTop;
+  }
+
   function rectsOverlap(a, b) {
     return Boolean(
       a && b &&
@@ -167,6 +194,7 @@
     intersectRect,
     isVideoReady,
     rectsOverlap,
+    shiftBelowRects,
     shiftLeftToAvoidRects,
     translateRectThroughFrame,
   };

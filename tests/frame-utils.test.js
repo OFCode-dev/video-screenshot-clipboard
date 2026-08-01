@@ -6,9 +6,38 @@ const {
   fitWithin,
   intersectRect,
   isVideoReady,
+  shiftBelowRects,
   shiftLeftToAvoidRects,
   translateRectThroughFrame,
 } = require("../extension/frame-utils.js");
+
+test("shiftBelowRects drops a control under a pinned header", () => {
+  const top = shiftBelowRects(12, 1200, 38, 38, 400, [
+    { left: 0, top: 0, right: 1440, bottom: 84 },
+  ]);
+  assert.equal(top, 92);
+});
+
+test("shiftBelowRects clears stacked banners", () => {
+  const top = shiftBelowRects(12, 1200, 38, 38, 400, [
+    { left: 0, top: 0, right: 1440, bottom: 40 },
+    { left: 0, top: 40, right: 1440, bottom: 120 },
+  ]);
+  assert.equal(top, 128);
+});
+
+test("shiftBelowRects leaves an unobstructed control untouched", () => {
+  assert.equal(shiftBelowRects(200, 1200, 38, 38, 400, [
+    { left: 0, top: 0, right: 1440, bottom: 84 },
+  ]), 200);
+});
+
+test("shiftBelowRects never pushes a control past the video", () => {
+  const top = shiftBelowRects(12, 1200, 38, 38, 30, [
+    { left: 0, top: 0, right: 1440, bottom: 400 },
+  ]);
+  assert.equal(top, 30);
+});
 
 test("intersectRect keeps a fully visible video rectangle", () => {
   assert.deepEqual(

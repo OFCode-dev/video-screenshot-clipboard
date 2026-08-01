@@ -19,6 +19,7 @@
   const DEFAULT_SHORTCUT_KEYS = ["v", "s"];
   const DEFAULT_SHORTCUT_TIMEOUT_MS = 700;
   const FRAME_STATUS_HEARTBEAT_MS = 2000;
+  const AMBIENT_RECHECK_MS = 1000;
   const FRAME_BRIDGE_ID = `frame-screenshot:${chrome.runtime.id}`;
   const records = new Map();
   const observedRoots = new WeakSet();
@@ -32,6 +33,9 @@
   let shortcutKeys = DEFAULT_SHORTCUT_KEYS;
   let shortcutTimeoutMs = DEFAULT_SHORTCUT_TIMEOUT_MS;
   let shortcutState = { index: 0, lastAt: 0 };
+  let pointerX = -1;
+  let pointerY = -1;
+  let ambientRecords = 0;
 
   const resizeObserver = new ResizeObserver(() => scheduleLayout());
 
@@ -76,6 +80,8 @@
 
   addEventListener("scroll", scheduleLayout, true);
   addEventListener("resize", scheduleLayout, { passive: true });
+  addEventListener("pointermove", handlePointerMove, { passive: true, capture: true });
+  document.addEventListener("pointerleave", forgetPointer, true);
   document.addEventListener("fullscreenchange", () => {
     relocateOverlays();
     scheduleLayout();
@@ -116,6 +122,11 @@
     const host = document.createElement("div");
     host.className = "vsc-overlay-host";
     host.setAttribute("data-vsc-owned", "");
+    // A fixed element with auto offsets falls back to its static position, which
+    // for the last child of <html> is the bottom of the document. Pin it to the
+    // viewport origin so the transform alone decides where the control sits.
+    host.style.setProperty("top", "0", "important");
+    host.style.setProperty("left", "0", "important");
 
     const button = document.createElement("button");
     button.className = "vsc-copy-button";
@@ -161,7 +172,9 @@
 
   function updateLayouts() {
     const occupiedControlRects = findForeignScreenshotControlRects();
+    const now = Date.now();
     let largestVisibleArea = 0;
+    let ambientCount = 0;
     for (const record of records.values()) {
       const { video, host } = record;
       if (!video.isConnected) continue;
@@ -173,8 +186,8 @@
       // so neither hover nor the media's paused state is a reliable signal
       // that the user can see the video.
       const shouldShow = largeEnough && onScreen;
+      const visible = Utils.intersectRect(rect, innerWidth, innerHeight);
       if (shouldShow) {
-        const visible = Utils.intersectRect(rect, innerWidth, innerHeight);
         largestVisibleArea = Math.max(largestVisibleArea, visible.width * visible.height);
       }
 
@@ -184,17 +197,29 @@
       }
       restoreOverlayControl(record);
 
+      // Anchor to the part of the video the viewer can actually see, so a
+      // player scrolled half out of view keeps its control on the frame.
       const baseLeft = Utils.clamp(
-        rect.right - BUTTON_SIZE - BUTTON_INSET,
+        visible.right - BUTTON_SIZE - BUTTON_INSET,
         BUTTON_INSET,
         Math.max(BUTTON_INSET, innerWidth - BUTTON_SIZE - BUTTON_INSET)
       );
-      const top = Utils.clamp(
-        rect.top + BUTTON_INSET,
+      const lowestTop = Math.max(
         BUTTON_INSET,
-        Math.max(BUTTON_INSET, innerHeight - BUTTON_SIZE - BUTTON_INSET)
+        Math.min(innerHeight - BUTTON_SIZE - BUTTON_INSET, visible.bottom - BUTTON_SIZE - BUTTON_INSET)
       );
-      const minimumLeft = Math.max(BUTTON_INSET, rect.left + BUTTON_INSET);
+      const baseTop = Utils.clamp(visible.top + BUTTON_INSET, BUTTON_INSET, Math.max(BUTTON_INSET, lowestTop));
+      const top = shouldShow
+        ? Utils.shiftBelowRects(
+            baseTop,
+            baseLeft,
+            BUTTON_SIZE,
+            BUTTON_SIZE,
+            lowestTop,
+            findPinnedOverlayRectsAt(baseLeft, baseTop)
+          )
+        : baseTop;
+      const minimumLeft = Math.max(BUTTON_INSET, visible.left + BUTTON_INSET);
       const left = Utils.shiftLeftToAvoidRects(
         baseLeft,
         top,
@@ -203,10 +228,79 @@
         minimumLeft,
         occupiedControlRects
       );
+
+      const ambient = shouldShow && isAmbientVideo(record, rect, now);
+      if (ambient) ambientCount++;
+      const pointerNearby = ambient &&
+        pointerX >= rect.left && pointerX <= rect.right &&
+        pointerY >= rect.top && pointerY <= rect.bottom;
+
       host.style.setProperty("transform", `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`, "important");
       host.classList.toggle("vsc-visible", shouldShow);
+      host.classList.toggle("vsc-ambient", ambient);
+      host.classList.toggle("vsc-awake", pointerNearby);
     }
+    ambientRecords = ambientCount;
     publishFrameStatus(largestVisibleArea);
+  }
+
+  // A decorative background video sits under the page content, so the control
+  // would otherwise float over unrelated copy. Those controls stay dimmed until
+  // the pointer reaches the video.
+  function isAmbientVideo(record, rect, now) {
+    if (record.ambientCheckedAt && now - record.ambientCheckedAt < AMBIENT_RECHECK_MS) {
+      return Boolean(record.ambient);
+    }
+    record.ambientCheckedAt = now;
+    record.ambient = detectAmbientVideo(record.video, rect);
+    return record.ambient;
+  }
+
+  function detectAmbientVideo(video, rect) {
+    const style = getComputedStyle(video);
+    if (style.pointerEvents === "none") return true;
+    const zIndex = Number.parseInt(style.zIndex, 10);
+    if (Number.isFinite(zIndex) && zIndex < 0) return true;
+
+    const x = Utils.clamp(rect.left + rect.width / 2, 1, Math.max(1, innerWidth - 1));
+    const y = Utils.clamp(rect.top + rect.height / 2, 1, Math.max(1, innerHeight - 1));
+    const hit = document.elementFromPoint(x, y);
+    if (!hit || hit === video || video.contains(hit) || hit.contains(video)) return false;
+    return !hit.closest("[data-vsc-owned]");
+  }
+
+  function findPinnedOverlayRectsAt(left, top) {
+    const rects = [];
+    const probes = [
+      [left + BUTTON_SIZE / 2, top + BUTTON_SIZE / 2],
+      [left + BUTTON_SIZE / 2, top + 1],
+    ];
+    for (const [x, y] of probes) {
+      if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+      for (const element of document.elementsFromPoint(x, y)) {
+        if (element.closest("[data-vsc-owned]")) continue;
+        const position = getComputedStyle(element).position;
+        if (position !== "fixed" && position !== "sticky") continue;
+        const rect = element.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          rects.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
+        }
+        break;
+      }
+    }
+    return rects;
+  }
+
+  function handlePointerMove(event) {
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    if (ambientRecords > 0) scheduleLayout();
+  }
+
+  function forgetPointer() {
+    pointerX = -1;
+    pointerY = -1;
+    if (ambientRecords > 0) scheduleLayout();
   }
 
   function attachYouTubeControl(record) {
