@@ -209,13 +209,10 @@
     if (otherOwnedControl && otherOwnedControl !== record.button) return false;
 
     const rivalButton = controls.querySelector("button.screenshot-button.ytp-button:not([data-vsc-owned])");
-    if (rivalButton) {
-      rivalButton.classList.add("vsc-youtube-slot-replaced");
-      record.replacedYouTubeButton = rivalButton;
-    }
     if (record.button.parentNode !== controls) {
       controls.insertBefore(record.button, rivalButton || controls.firstChild);
     }
+    record.button.classList.remove("vsc-copy-button");
     record.button.classList.add("vsc-ytp-control", "ytp-button");
     record.button.setAttribute("data-vsc-youtube-control", "");
     record.inYouTubeControls = true;
@@ -224,8 +221,7 @@
 
   function restoreOverlayControl(record) {
     if (record.button.parentNode !== record.host) record.host.appendChild(record.button);
-    record.replacedYouTubeButton?.classList.remove("vsc-youtube-slot-replaced");
-    record.replacedYouTubeButton = null;
+    record.button.classList.add("vsc-copy-button");
     record.button.classList.remove("vsc-ytp-control", "ytp-button", "vsc-capture-hidden");
     record.button.removeAttribute("data-vsc-youtube-control");
     record.inYouTubeControls = false;
@@ -279,7 +275,6 @@
     for (const [video, record] of records) {
       if (video.isConnected) continue;
       resizeObserver.unobserve(video);
-      record.replacedYouTubeButton?.classList.remove("vsc-youtube-slot-replaced");
       record.button.remove();
       record.host.remove();
       records.delete(video);
