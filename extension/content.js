@@ -110,6 +110,7 @@
     const button = document.createElement("button");
     button.className = "vsc-copy-button";
     button.type = "button";
+    button.setAttribute("data-vsc-owned", "");
     button.title = "Copy current video frame";
     button.setAttribute("aria-label", "Copy current video frame to clipboard");
     button.innerHTML = cameraIcon();
@@ -167,6 +168,12 @@
         largestVisibleArea = Math.max(largestVisibleArea, visible.width * visible.height);
       }
 
+      if (shouldShow && attachYouTubeControl(record)) {
+        host.classList.remove("vsc-visible");
+        continue;
+      }
+      restoreOverlayControl(record);
+
       const baseLeft = Utils.clamp(
         rect.right - BUTTON_SIZE - BUTTON_INSET,
         BUTTON_INSET,
@@ -190,6 +197,31 @@
       host.classList.toggle("vsc-visible", shouldShow);
     }
     publishFrameStatus(largestVisibleArea);
+  }
+
+  function attachYouTubeControl(record) {
+    if (!/^(www\.)?youtube\.com$/i.test(location.hostname)) return false;
+    const player = record.video.closest(".html5-video-player");
+    const controls = player?.querySelector(".ytp-right-controls");
+    if (!controls) return false;
+
+    const otherOwnedControl = controls.querySelector("[data-vsc-youtube-control]");
+    if (otherOwnedControl && otherOwnedControl !== record.button) return false;
+
+    if (record.button.parentNode !== controls) {
+      controls.insertBefore(record.button, controls.firstChild);
+    }
+    record.button.classList.add("vsc-ytp-control", "ytp-button");
+    record.button.setAttribute("data-vsc-youtube-control", "");
+    record.inYouTubeControls = true;
+    return true;
+  }
+
+  function restoreOverlayControl(record) {
+    if (record.button.parentNode !== record.host) record.host.appendChild(record.button);
+    record.button.classList.remove("vsc-ytp-control", "ytp-button", "vsc-capture-hidden");
+    record.button.removeAttribute("data-vsc-youtube-control");
+    record.inYouTubeControls = false;
   }
 
   function publishFrameStatus(area) {
@@ -240,6 +272,7 @@
     for (const [video, record] of records) {
       if (video.isConnected) continue;
       resizeObserver.unobserve(video);
+      record.button.remove();
       record.host.remove();
       records.delete(video);
     }
@@ -552,6 +585,7 @@
   function setOverlaysCaptureHidden(hidden) {
     for (const record of records.values()) {
       record.host.classList.toggle("vsc-capture-hidden", hidden);
+      record.button.classList.toggle("vsc-capture-hidden", hidden);
     }
   }
 
