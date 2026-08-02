@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <meta name="description" content="Support and troubleshooting for Frame Screenshot → Clipboard.">
+  <title>Support — Frame Screenshot → Clipboard</title>
+  <link rel="canonical" href="https://ofcodedev.me/frame-screenshot-clipboard/support/">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --text: #17151c;
+      --muted: #5f5a67;
+      --border: #e5e1e8;
+      --accent: #00807a;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111117;
+        --text: #f6f5f8;
+        --muted: #b7b1bd;
+        --border: #302b35;
+        --accent: #3ee0d4;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(820px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(32px, 6vw, 48px);
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+    }
+
+    h2 {
+      margin: 38px 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    h3 { margin: 24px 0 6px; font-size: 17px; }
+
+    p, li { font-size: 16px; }
+    ul, ol { padding-left: 24px; }
+    .meta { margin: 0 0 28px; color: var(--muted); }
+    .lead { font-size: 18px; }
+    strong { font-weight: 750; }
+    a { color: var(--accent); }
+
+    code {
+      background: color-mix(in srgb, var(--border) 45%, transparent);
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Support</h1>
+    <p class="meta"><strong>Frame Screenshot → Clipboard</strong> · <a href="../">back to the extension page</a></p>
+
+    <p class="lead">Most problems fall into one of the cases below. If yours doesn't, please <a href="https://github.com/OFCode-dev/frame-screenshot-clipboard/issues">open an issue</a> or write to <a href="mailto:contact@ofcodedev.me">contact@ofcodedev.me</a>.</p>
+
+    <h2>Using it</h2>
+    <p>There are three ways to capture the frame you are looking at:</p>
+    <ul>
+      <li>Hover the video and click the camera button on the player.</li>
+      <li>Press the page shortcut — by default <strong>V</strong> then <strong>S</strong> within 0.7 seconds. It is ignored while you are typing in a text field.</li>
+      <li>Click the toolbar icon, which captures the largest visible video on the page, including one inside an embedded player.</li>
+    </ul>
+    <p>The shortcut keys and the timing window can be changed on the extension's Options page.</p>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>No button appears on the video</h3>
+    <p>Very small decorative videos are skipped on purpose. The button also cannot be shown on browser-internal pages (<code>chrome://</code>, <code>chrome-extension://</code>, the Chrome Web Store), and a bare video element that is itself the fullscreen element cannot host it — leave fullscreen, or use the toolbar icon or the shortcut instead.</p>
+
+    <h3>The button shows an exclamation mark</h3>
+    <p>The capture failed and the message under the button says why. The most common cause is a video whose frames the browser refuses to hand over. Try again once the video has actually started playing; a player that has not decoded a frame yet has nothing to copy.</p>
+
+    <h3>The copied image is smaller than the video</h3>
+    <p>When a site blocks direct access to the frame, the extension falls back to a picture of the visible tab area, so the result is limited to what fits on your screen. Making the window larger, or zooming out so the whole player is visible, gives you the whole frame. The message after the capture tells you which route was used: a native frame, or the visible part only.</p>
+
+    <h3>Netflix, Prime Video and other DRM services produce a black image</h3>
+    <p>Protected video is deliberately unreadable to extensions. The browser hands back an empty frame by design and no extension can work around it.</p>
+
+    <h3>Nothing lands on the clipboard</h3>
+    <p>The browser only allows a clipboard write from the page you are actually looking at. If you switch tabs or windows during the capture, the write is refused. Keep the tab focused and try again.</p>
+
+    <h2>Privacy</h2>
+    <p>Nothing is collected, stored, or transmitted — see the <a href="../privacy/">Privacy Policy</a>.</p>
+  </main>
+</body>
+</html>

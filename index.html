@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <meta name="description" content="Copy the current frame of any HTML5 video straight to your clipboard.">
+
+  <title>Frame Screenshot → Clipboard</title>
+  <link rel="canonical" href="https://ofcodedev.me/frame-screenshot-clipboard/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Frame Screenshot → Clipboard">
+  <meta property="og:description" content="Copy the current frame of any HTML5 video straight to your clipboard.">
+  <meta property="og:url" content="https://ofcodedev.me/frame-screenshot-clipboard/">
+  <meta property="og:image" content="https://ofcodedev.me/frame-screenshot-clipboard/assets/icons/icon128.png">
+  <meta property="og:image:alt" content="Frame Screenshot → Clipboard">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Frame Screenshot → Clipboard">
+  <meta name="twitter:description" content="Copy the current frame of any HTML5 video straight to your clipboard.">
+  <meta name="twitter:image" content="https://ofcodedev.me/frame-screenshot-clipboard/assets/icons/icon128.png">
+
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #ffffff;
+      --text: #17151c;
+      --muted: #5f5a67;
+      --border: #e5e1e8;
+      --accent: #00807a;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111117;
+        --text: #f6f5f8;
+        --muted: #b7b1bd;
+        --border: #302b35;
+        --accent: #3ee0d4;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(820px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(32px, 6vw, 48px);
+      line-height: 1.1;
+      letter-spacing: -0.025em;
+    }
+
+    h2 {
+      margin: 38px 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    p, li, td, th { font-size: 16px; }
+    ul, ol { padding-left: 24px; }
+    .lead { font-size: 18px; color: var(--muted); margin: 0 0 28px; }
+    strong { font-weight: 750; }
+    a { color: var(--accent); }
+
+    .cta {
+      display: inline-block;
+      margin: 18px 0 4px;
+      padding: 12px 22px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .cta { color: #06231f; }
+    }
+
+    .family {
+      margin: 12px 0 0;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+    }
+
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    code {
+      background: color-mix(in srgb, var(--border) 45%, transparent);
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Frame Screenshot → Clipboard</h1>
+    <p class="lead"><strong>The exact video moment, on your clipboard, without creating a file.</strong> Hover any HTML5 video, click the camera button on the player, and the current frame is copied as a PNG at the video's native resolution — ready to paste anywhere. No editor, no downloads, no account.</p>
+
+    <p><a class="cta" href="https://github.com/OFCode-dev/frame-screenshot-clipboard">Install from source →</a></p>
+    <p class="lead">The Chrome Web Store listing is on its way; until then the extension loads unpacked in developer mode.</p>
+
+    <h2>Why this exists</h2>
+    <p>Getting one frame out of a video usually means pausing it, screenshotting the whole screen, then cropping away the page around it — and ending up with whatever resolution your monitor happens to be. This extension collapses that to <strong>click → paste</strong>:</p>
+    <ol>
+      <li>Hover the player and click the camera button, press the page shortcut, or click the toolbar icon</li>
+      <li>The decoded frame is drawn at the video's own resolution — the page's text, navigation and overlays are never part of the image</li>
+      <li>Paste with <strong>Ctrl+V</strong> / <strong>Cmd+V</strong> into Slack, ChatGPT, Figma, Docs, Notion, email, tickets, image editors</li>
+    </ol>
+
+    <h2>Features</h2>
+    <ul>
+      <li>🎬 <strong>Native-resolution frames</strong> — a 4K video gives you a 4K frame, no matter how small the player is on screen</li>
+      <li>🎯 <strong>Only the video</strong> — never the hero text, the nav bar, the cookie banner, or the extension's own button</li>
+      <li>⌨️ <strong>Your shortcut</strong> — a one-key or two-key page sequence, default <strong>V</strong> then <strong>S</strong>, ignored while you type</li>
+      <li>🖼️ <strong>Finds every player</strong> — looped "moving photos", videos added later by single-page apps, open shadow roots, embedded frames</li>
+      <li>📋 <strong>Straight to clipboard</strong> — nothing is downloaded, uploaded, or written to disk</li>
+      <li>🆓 <strong>Free &amp; open source</strong> — MIT licensed, Manifest V3, no dependencies</li>
+    </ul>
+
+    <h2>Permissions (all of them)</h2>
+    <table>
+      <tr><th>Permission</th><th>Why</th></tr>
+      <tr><td><code>clipboardWrite</code></td><td>Put the captured PNG on your clipboard</td></tr>
+      <tr><td><code>storage</code></td><td>Remember your shortcut keys and timing preference</td></tr>
+      <tr><td>Access to all page URLs</td><td>Find videos on the page you are looking at, and let Chrome capture the visible area when a site blocks direct frame access</td></tr>
+    </table>
+    <p>No analytics permission, no downloads permission, no remote code.</p>
+
+    <h2>Install from source (developer mode)</h2>
+    <ol>
+      <li>Clone the <a href="https://github.com/OFCode-dev/frame-screenshot-clipboard">repository</a></li>
+      <li>Open <code>chrome://extensions</code> and enable <strong>Developer mode</strong></li>
+      <li>Click <strong>Load unpacked</strong> and select the <code>extension</code> folder</li>
+    </ol>
+
+    <h2>FAQ</h2>
+    <p><strong>Why is the copied image sometimes smaller than the video?</strong><br>
+    A few sites hand their video to the page in a way that makes the browser refuse a direct read of the frame. The extension then reloads the media on its own or falls back to capturing the visible area, and it tells you which one it used.</p>
+    <p><strong>Nothing happens on Netflix or Prime Video.</strong><br>
+    DRM-protected video is deliberately unreadable to extensions; the browser hands back a black frame by design.</p>
+    <p><strong>Where is the captured frame stored?</strong><br>
+    Nowhere. The PNG goes to your clipboard and exists only there.</p>
+
+    <h2>Support</h2>
+    <ul>
+      <li>🐛 <a href="https://github.com/OFCode-dev/frame-screenshot-clipboard/issues">Report a bug or request a feature</a></li>
+      <li>📖 <a href="support/">Support &amp; troubleshooting</a></li>
+      <li>📧 <a href="mailto:contact@ofcodedev.me">contact@ofcodedev.me</a></li>
+    </ul>
+
+    <h2>Privacy &amp; license</h2>
+    <p>No data collection — see the <a href="privacy/">Privacy Policy</a>. Code is MIT licensed.</p>
+
+    <h2>The family</h2>
+    <p class="family">The youngest of three siblings, all built on the same promise — one click, straight to the clipboard.
+      <a href="https://chromewebstore.google.com/detail/quick-screenshot-%E2%86%92-clipbo/pimodklbppjmjnpmhaipihkfnbnldebh">Quick</a> is the eldest and captures the visible tab,
+      <a href="https://chromewebstore.google.com/detail/stitch-screenshot-%E2%86%92-clipb/ldhpomojadcpocpghpdpinpmagjknfjh">Stitch</a> is the middle child and captures the scrolling page,
+      and Frame captures the current video frame.</p>
+  </main>
+</body>
+</html>
