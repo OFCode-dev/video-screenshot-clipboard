@@ -12,6 +12,7 @@ const {
   rememberInlineStyle,
   restoreInlineStyles,
   sampleRectPoints,
+  scrollOffsetToReveal,
   shiftBelowRects,
   shiftLeftToAvoidRects,
   stackAboveTarget,
@@ -128,6 +129,28 @@ test("restoreInlineStyles survives a partially recorded batch", () => {
   kept.style.setProperty("visibility", "hidden", "important");
   restoreInlineStyles([null, entry, undefined]);
   assert.equal(kept.style.getPropertyValue("visibility"), "");
+});
+
+test("scrollOffsetToReveal leaves a fully visible player alone", () => {
+  const offset = scrollOffsetToReveal({ left: 100, top: 100, right: 700, bottom: 500 }, 1000, 800);
+  assert.deepEqual(offset, { x: 0, y: 0 });
+});
+
+test("scrollOffsetToReveal scrolls a player hanging off the bottom into view", () => {
+  const offset = scrollOffsetToReveal({ left: 0, top: 500, right: 800, bottom: 1000 }, 1000, 800, 8);
+  // Bringing the bottom in costs 208px, and the top can spare 492px, so the
+  // cheaper move wins and the top edge stays on screen.
+  assert.deepEqual(offset, { x: 0, y: 208 });
+});
+
+test("scrollOffsetToReveal pulls a player back from above the fold", () => {
+  const offset = scrollOffsetToReveal({ left: 0, top: -120, right: 800, bottom: 300 }, 1000, 800, 8);
+  assert.deepEqual(offset, { x: 0, y: -128 });
+});
+
+test("scrollOffsetToReveal aligns a player taller than the viewport to its top", () => {
+  const offset = scrollOffsetToReveal({ left: 0, top: 200, right: 800, bottom: 1400 }, 1000, 800, 8);
+  assert.deepEqual(offset, { x: 0, y: 192 });
 });
 
 test("intersectRects returns the shared area of an overlay and the video", () => {

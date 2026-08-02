@@ -147,6 +147,31 @@
     return candidateTop;
   }
 
+  // A visible-tab capture can only see the viewport, so a player hanging off the
+  // edge would be cropped. This is the scroll delta that brings it back in; an
+  // element larger than the viewport is aligned to its top-left instead.
+  function scrollOffsetToReveal(rect, viewportWidth, viewportHeight, margin = 8) {
+    const vw = Math.max(0, finite(viewportWidth));
+    const vh = Math.max(0, finite(viewportHeight));
+    const gap = Math.max(0, finite(margin, 8));
+    const left = finite(rect && rect.left);
+    const top = finite(rect && rect.top);
+    const right = finite(rect && rect.right, left);
+    const bottom = finite(rect && rect.bottom, top);
+
+    return {
+      x: axisOffsetToReveal(left, right, vw, gap),
+      y: axisOffsetToReveal(top, bottom, vh, gap),
+    };
+  }
+
+  function axisOffsetToReveal(start, end, viewport, gap) {
+    if (end - start > viewport) return start - gap;
+    if (end > viewport) return Math.min(start - gap, end - viewport + gap);
+    if (start < 0) return start - gap;
+    return 0;
+  }
+
   function intersectRects(a, b) {
     const left = Math.max(finite(a && a.left), finite(b && b.left));
     const top = Math.max(finite(a && a.top), finite(b && b.top));
@@ -291,6 +316,7 @@
     rememberInlineStyle,
     restoreInlineStyles,
     sampleRectPoints,
+    scrollOffsetToReveal,
     shiftBelowRects,
     shiftLeftToAvoidRects,
     stackAboveTarget,

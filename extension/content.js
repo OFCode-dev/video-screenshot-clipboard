@@ -488,9 +488,16 @@
       try {
         blob = await drawVideoFrame(record.video);
       } catch (directError) {
-        console.debug("[Frame Screenshot] Direct frame capture unavailable; using visible crop", directError);
-        blob = await captureVisibleVideo(record.video);
-        method = "visible frame";
+        console.debug("[Frame Screenshot] Direct frame capture unavailable", directError);
+        try {
+          // Still the whole frame at its own resolution — only the route differs.
+          blob = await captureFromSource(record.video);
+        } catch (sourceError) {
+          console.debug("[Frame Screenshot] Source reload unavailable; using visible crop", sourceError);
+          const capture = await captureVisibleVideo(record.video);
+          blob = capture.blob;
+          method = capture.partial ? "visible part only" : "visible frame";
+        }
       }
 
       await writePngToClipboard(blob);
@@ -524,7 +531,99 @@
     return canvasToPng(canvas);
   }
 
+  // The page's canvas is tainted, but the media itself is usually served with
+  // permissive CORS headers. Loading the same source into a private element
+  // that asks for CORS gives a clean canvas — the whole frame at its own
+  // resolution, no matter how much of the player the viewport shows.
+  async function captureFromSource(video) {
+    const source = video.currentSrc || video.src;
+    if (!source || source.startsWith("blob:") || source.startsWith("data:")) {
+      throw new Error("source/unavailable: this player streams its media, so it cannot be reloaded");
+    }
+
+    const clone = document.createElement("video");
+    clone.crossOrigin = "anonymous";
+    clone.preload = "auto";
+    clone.muted = true;
+    clone.playsInline = true;
+    clone.setAttribute("data-vsc-owned", "");
+    clone.style.cssText = "position:fixed!important;left:-99999px!important;top:0!important;" +
+      "width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important";
+    document.documentElement.appendChild(clone);
+
+    try {
+      await loadCloneFrame(clone, source, video.currentTime);
+      return await drawVideoFrame(clone);
+    } finally {
+      clone.removeAttribute("src");
+      clone.load();
+      clone.remove();
+    }
+  }
+
+  function loadCloneFrame(clone, source, currentTime, timeoutMs = 6000) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => settle(new Error("source/timeout: the media did not decode in time")),
+        timeoutMs
+      );
+
+      function settle(error) {
+        clearTimeout(timer);
+        clone.removeEventListener("loadeddata", onLoaded);
+        clone.removeEventListener("seeked", onSeeked);
+        clone.removeEventListener("error", onError);
+        if (error) reject(error);
+        else resolve();
+      }
+      function onLoaded() {
+        const wanted = Number(currentTime);
+        if (Number.isFinite(wanted) && wanted > 0 && Number.isFinite(clone.duration) && wanted < clone.duration) {
+          clone.currentTime = wanted;
+          return;
+        }
+        if (Utils.isVideoReady(clone)) settle();
+      }
+      function onSeeked() {
+        if (Utils.isVideoReady(clone)) settle();
+      }
+      function onError() {
+        settle(new Error("source/blocked: the media refused a cross-origin read"));
+      }
+
+      clone.addEventListener("loadeddata", onLoaded);
+      clone.addEventListener("seeked", onSeeked);
+      clone.addEventListener("error", onError);
+      clone.src = source;
+      clone.load();
+    });
+  }
+
   async function captureVisibleVideo(video) {
+    const restoreScroll = revealVideo(video);
+    try {
+      await nextFrames(2);
+      return await cropVisibleVideo(video);
+    } finally {
+      restoreScroll();
+    }
+  }
+
+  // captureVisibleTab() only photographs the viewport, so a player hanging off
+  // the edge would be cropped to whatever happens to be on screen. Scroll it in
+  // when it fits and put the scroll position back afterwards.
+  function revealVideo(video) {
+    const rect = video.getBoundingClientRect();
+    const offset = Utils.scrollOffsetToReveal(rect, innerWidth, innerHeight);
+    if (!offset.x && !offset.y) return () => undefined;
+
+    const previousX = scrollX;
+    const previousY = scrollY;
+    scrollBy({ left: offset.x, top: offset.y, behavior: "instant" });
+    return () => scrollTo({ left: previousX, top: previousY, behavior: "instant" });
+  }
+
+  async function cropVisibleVideo(video) {
     const geometry = await getTopLevelGeometry(video.getBoundingClientRect());
     const rect = geometry.rect;
     const viewportWidth = geometry.viewportWidth;
@@ -565,7 +664,10 @@
           crop.sourceWidth,
           crop.sourceHeight
         );
-        return canvasToPng(canvas);
+        // Say so when only part of the player made it into the shot, instead of
+        // letting a half frame look like the whole thing.
+        const partial = crop.visible.width < rect.width - 1 || crop.visible.height < rect.height - 1;
+        return { blob: await canvasToPng(canvas), partial };
       } finally {
         bitmap.close();
       }
