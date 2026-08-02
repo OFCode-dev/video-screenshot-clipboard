@@ -2,11 +2,11 @@
 
 Copy the current frame of an HTML5 video straight to your clipboard. Hover a video, click the camera button, then paste the PNG anywhere—no editor, download, account, analytics, or server.
 
-This is the third extension in the OFCode screenshot-to-clipboard family:
+The youngest of three siblings, all built on the same promise — one click, straight to the clipboard:
 
-- [Quick Screenshot → Clipboard](https://github.com/OFCode-dev/quick-screenshot-clipboard) — visible tab
-- [Stitch Screenshot → Clipboard](https://github.com/OFCode-dev/stitch-screenshot-clipboard) — scrolling page
-- **Frame Screenshot → Clipboard** — current video frame
+- [Quick Screenshot → Clipboard](https://chromewebstore.google.com/detail/quick-screenshot-%E2%86%92-clipbo/pimodklbppjmjnpmhaipihkfnbnldebh) — the eldest: the visible tab
+- [Stitch Screenshot → Clipboard](https://chromewebstore.google.com/detail/stitch-screenshot-%E2%86%92-clipb/ldhpomojadcpocpghpdpinpmagjknfjh) — the middle child: the scrolling page
+- **Frame Screenshot → Clipboard** — the youngest: the current video frame
 
 ## How it works
 
@@ -42,7 +42,9 @@ The extension does not request `downloads` or analytics-related permissions.
 
 ## The screenshot family
 
-**Frame** is the turquoise third sibling: Quick captures the visible tab, Stitch (fuchsia) captures the full page, and Frame captures the exact moment in a video. Its video-player, blue lens, and clipboard badge share the same soft 3D visual language without reusing either sibling's composition.
+**Frame** is the turquoise youngest sibling: Quick captures the visible tab, Stitch (fuchsia) captures the full page, and Frame captures the exact moment in a video. Its video-player, blue lens, and clipboard badge share the same soft 3D visual language without reusing an older sibling's composition.
+
+Siblings keep the promise — one click, no file, no account, straight to the clipboard. A capture tool that breaks it, by asking you to select a region or to annotate before copying, would join the family as a cousin instead.
 
 ## Development
 

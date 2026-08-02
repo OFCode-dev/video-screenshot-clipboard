@@ -1,6 +1,6 @@
 {
   "name": "frame-screenshot-clipboard",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Copy the current HTML5 video frame to the clipboard from an in-player button.",
   "scripts": {
