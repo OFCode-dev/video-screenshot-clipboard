@@ -7,10 +7,10 @@
 (() => {
   "use strict";
 
-  if (globalThis.__videoScreenshotClipboardLoaded) return;
-  globalThis.__videoScreenshotClipboardLoaded = true;
+  if (globalThis.__frameScreenshotClipboardLoaded) return;
+  globalThis.__frameScreenshotClipboardLoaded = true;
 
-  const Utils = globalThis.VideoFrameUtils;
+  const Utils = globalThis.FrameUtils;
   const MIN_VIDEO_WIDTH = 160;
   const MIN_VIDEO_HEIGHT = 90;
   const BUTTON_SIZE = 38;
@@ -20,6 +20,7 @@
   const DEFAULT_SHORTCUT_TIMEOUT_MS = 700;
   const FRAME_STATUS_HEARTBEAT_MS = 2000;
   const AMBIENT_RECHECK_MS = 1000;
+  const MAX_OVERLAY_CANDIDATES = 300;
   const FRAME_BRIDGE_ID = `frame-screenshot:${chrome.runtime.id}`;
   const records = new Map();
   const observedRoots = new WeakSet();
@@ -36,6 +37,7 @@
   let pointerX = -1;
   let pointerY = -1;
   let ambientRecords = 0;
+  let overlayCaptureStyles = [];
 
   const resizeObserver = new ResizeObserver(() => scheduleLayout());
 
@@ -486,7 +488,7 @@
       try {
         blob = await drawVideoFrame(record.video);
       } catch (directError) {
-        console.debug("[Video Screenshot] Direct frame capture unavailable; using visible crop", directError);
+        console.debug("[Frame Screenshot] Direct frame capture unavailable; using visible crop", directError);
         blob = await captureVisibleVideo(record.video);
         method = "visible frame";
       }
@@ -496,7 +498,7 @@
       showToast(`Copied ${method} — ${describeBlob(blob)}`);
       sendBadge("success");
     } catch (error) {
-      console.warn("[Video Screenshot]", error);
+      console.warn("[Frame Screenshot]", error);
       record.button.innerHTML = errorIcon();
       showToast(friendlyError(error), true);
       sendBadge("error");
@@ -532,9 +534,7 @@
       throw new Error("The video is outside the visible viewport");
     }
 
-    setOverlaysCaptureHidden(true);
-    try {
-      await nextFrames(2);
+    return withIsolatedVideo(video, async () => {
       const response = await chrome.runtime.sendMessage({ type: "VSC_CAPTURE_VISIBLE" });
       if (!response?.ok || !response.dataUrl) {
         throw new Error(response?.error || "Visible-tab capture failed");
@@ -569,9 +569,144 @@
       } finally {
         bitmap.close();
       }
+    });
+  }
+
+  // captureVisibleTab() photographs the composited tab, so every pixel painted
+  // over the video — hero copy, navigation, cookie banners — ends up inside the
+  // crop. Cropping cannot pick a layer, so the elements painted above the video
+  // are hidden for the length of the capture and then put back.
+  async function withIsolatedVideo(video, capture) {
+    const changes = [];
+    setOverlaysCaptureHidden(true);
+    try {
+      for (const element of collectOverlayElements(video)) {
+        // visibility keeps the element in the layout, so nothing reflows and the
+        // video keeps the exact rectangle the crop was calculated from.
+        changes.push(Utils.rememberInlineStyle(element, "visibility"));
+        element.style.setProperty("visibility", "hidden", "important");
+      }
+      await nextFrames(3);
+      return await capture();
     } finally {
+      // Restoration is unconditional: a failed capture, a decode error or a
+      // rejected clipboard write must never leave the page with hidden content.
+      Utils.restoreInlineStyles(changes);
       setOverlaysCaptureHidden(false);
     }
+  }
+
+  function collectOverlayElements(video) {
+    const visible = Utils.intersectRect(video.getBoundingClientRect(), innerWidth, innerHeight);
+    const ancestors = composedAncestors(video);
+    const candidates = [];
+
+    // Two passes complement each other: probing points catches anything the
+    // compositor puts on top, including shadow-DOM hosts, while walking the
+    // tree catches boxes that sit between probes, such as a row of buttons.
+    for (const point of Utils.sampleRectPoints(visible)) {
+      for (const element of elementsAboveVideo(video, point)) {
+        if (isHideableOverlay(element, video, ancestors)) candidates.push(element);
+      }
+    }
+    for (const element of collectStructuralOverlays(video, visible, ancestors)) {
+      if (isHideableOverlay(element, video, ancestors) && paintsAboveVideo(element, video, visible)) {
+        candidates.push(element);
+      }
+    }
+    return Utils.reduceOverlayCandidates(candidates);
+  }
+
+  // Descend from the document root, following only the branch that renders the
+  // video. Every other box that overlaps the visible frame is an overlay, and
+  // oversized wrappers are opened up so a whole page section is never hidden
+  // when a single headline is the thing in the way.
+  function collectStructuralOverlays(video, visible, ancestors) {
+    const found = [];
+    const queue = [document.documentElement];
+    const frameArea = Math.max(1, visible.width * visible.height);
+
+    for (let guard = 0; queue.length && guard < 4000 && found.length < MAX_OVERLAY_CANDIDATES; guard++) {
+      const parent = queue.shift();
+      for (const child of parent.children) {
+        if (!(child instanceof Element) || child.hasAttribute("data-vsc-owned")) continue;
+        const rect = child.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) continue;
+        if (!Utils.rectsOverlap(rect, visible)) continue;
+
+        if (ancestors.has(child) || child.contains(video) || isFrameHostingVideo(child, video)) {
+          queue.push(child);
+          continue;
+        }
+        if (child.children.length && rect.width * rect.height > frameArea * 1.5) {
+          queue.push(child);
+          continue;
+        }
+        found.push(child);
+      }
+    }
+    return found;
+  }
+
+  // Overlapping rectangles prove nothing about paint order — a decorative layer
+  // can sit behind the video. The hit test at the overlapping area decides.
+  function paintsAboveVideo(element, video, visible) {
+    const overlap = Utils.intersectRects(element.getBoundingClientRect(), visible);
+    if (overlap.width < 1 || overlap.height < 1) return false;
+
+    const stack = document.elementsFromPoint(
+      overlap.left + overlap.width / 2,
+      overlap.top + overlap.height / 2
+    );
+    const target = stack.find((node) => node === video || video.contains(node));
+    return Utils.stackAboveTarget(stack, target || video)
+      .some((node) => node === element || element.contains(node));
+  }
+
+  function elementsAboveVideo(video, point) {
+    const stack = document.elementsFromPoint(point.x, point.y);
+    // A descendant of the video (its own controls, a poster wrapper) paints at
+    // the same depth as the video, so the first one ends the "above" section.
+    const target = stack.find((element) => element === video || video.contains(element));
+    return Utils.stackAboveTarget(stack, target || video);
+  }
+
+  function isHideableOverlay(element, video, ancestors) {
+    if (!(element instanceof Element)) return false;
+    if (element === video || video.contains(element) || ancestors.has(element)) return false;
+    if (element === document.documentElement || element === document.body) return false;
+    if (element.closest("[data-vsc-owned]")) return false;
+    if (isFrameHostingVideo(element, video)) return false;
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return false;
+
+    const style = getComputedStyle(element);
+    if (style.visibility === "hidden" || style.display === "none" || style.opacity === "0") return false;
+    return true;
+  }
+
+  // Shadow roots break Node.contains(), so the chain that renders the video is
+  // walked through host boundaries. Nothing on that chain may be hidden.
+  function composedAncestors(node) {
+    const chain = new Set();
+    let current = node;
+    for (let depth = 0; current && depth < 500; depth++) {
+      chain.add(current);
+      current = current.parentNode || current.host || null;
+    }
+    return chain;
+  }
+
+  function isFrameHostingVideo(element, video) {
+    const tag = element.tagName;
+    if (tag !== "IFRAME" && tag !== "FRAME") return false;
+    let frameWindow = video.ownerDocument?.defaultView || null;
+    for (let depth = 0; frameWindow && depth < 20; depth++) {
+      if (element.contentWindow === frameWindow) return true;
+      frameWindow = frameWindow.parent === frameWindow ? null : frameWindow.parent;
+    }
+    return false;
   }
 
   function getTopLevelGeometry(rect) {
@@ -689,10 +824,20 @@
     };
   }
 
+  // Inline declarations, not a class: the button resets itself with
+  // `all: initial`, which restores visibility to visible and ignores the hidden
+  // host, and a relayout can strip a class mid-capture. An inline !important
+  // rule survives both, and the previous declarations are restored afterwards.
   function setOverlaysCaptureHidden(hidden) {
+    Utils.restoreInlineStyles(overlayCaptureStyles);
+    overlayCaptureStyles = [];
+    if (!hidden) return;
+
     for (const record of records.values()) {
-      record.host.classList.toggle("vsc-capture-hidden", hidden);
-      record.button.classList.toggle("vsc-capture-hidden", hidden);
+      for (const node of [record.host, record.button]) {
+        overlayCaptureStyles.push(Utils.rememberInlineStyle(node, "visibility"));
+        node.style.setProperty("visibility", "hidden", "important");
+      }
     }
   }
 

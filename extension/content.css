@@ -38,8 +38,12 @@
   opacity: 1 !important;
 }
 
+/* This has to beat every opacity rule above it, whatever their specificity: the
+   capture is a photograph of the tab, so a control left on screen lands in the
+   PNG. visibility is a separate property, so no opacity rule can override it. */
 .vsc-overlay-host.vsc-capture-hidden {
   opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 .vsc-copy-button {
@@ -78,6 +82,9 @@
 
 .vsc-copy-button svg {
   all: initial !important;
+  /* `all: initial` would reset visibility to visible, letting the glyph paint
+     out of a hidden button and into a visible-tab capture. */
+  visibility: inherit !important;
   display: block !important;
   width: 21px !important;
   height: 21px !important;

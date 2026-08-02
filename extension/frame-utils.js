@@ -1,8 +1,8 @@
-(function initVideoFrameUtils(root, factory) {
+(function initFrameUtils(root, factory) {
   const api = factory();
-  root.VideoFrameUtils = api;
+  root.FrameUtils = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function createVideoFrameUtils() {
+})(typeof globalThis !== "undefined" ? globalThis : this, function createFrameUtils() {
   "use strict";
 
   function finite(value, fallback = 0) {
@@ -147,6 +147,98 @@
     return candidateTop;
   }
 
+  function intersectRects(a, b) {
+    const left = Math.max(finite(a && a.left), finite(b && b.left));
+    const top = Math.max(finite(a && a.top), finite(b && b.top));
+    const right = Math.min(finite(a && a.right, left), finite(b && b.right, left));
+    const bottom = Math.min(finite(a && a.bottom, top), finite(b && b.bottom, top));
+
+    return {
+      left,
+      top,
+      right: Math.max(left, right),
+      bottom: Math.max(top, bottom),
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+    };
+  }
+
+  // A single centre probe misses full-bleed overlays whose text sits off to one
+  // side, so the visible video area is sampled on a grid that includes its
+  // corners and edges.
+  function sampleRectPoints(rect, columns = 5, rows = 5, inset = 2) {
+    const left = finite(rect && rect.left);
+    const top = finite(rect && rect.top);
+    const right = finite(rect && rect.right, left);
+    const bottom = finite(rect && rect.bottom, top);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    if (width < 1 || height < 1) return [];
+
+    const columnCount = Math.max(2, Math.round(finite(columns, 5)));
+    const rowCount = Math.max(2, Math.round(finite(rows, 5)));
+    const pad = Math.min(Math.max(0, finite(inset, 2)), Math.min(width, height) / 4);
+    const points = [];
+
+    for (let row = 0; row < rowCount; row++) {
+      for (let column = 0; column < columnCount; column++) {
+        points.push({
+          x: left + pad + ((width - pad * 2) * column) / (columnCount - 1),
+          y: top + pad + ((height - pad * 2) * row) / (rowCount - 1),
+        });
+      }
+    }
+    return points;
+  }
+
+  // elementsFromPoint() returns hits in paint order, topmost first. Everything
+  // listed before the video is painted above it; everything after is behind it
+  // and must be left alone even though the rectangles overlap.
+  function stackAboveTarget(stack, target) {
+    const hits = Array.isArray(stack) ? stack : [];
+    const above = [];
+    for (const element of hits) {
+      if (element === target) return above;
+      above.push(element);
+    }
+    return above;
+  }
+
+  // Hiding a container also hides its children, so when both an overlay and one
+  // of its ancestors are candidates only the innermost element is kept.
+  function reduceOverlayCandidates(candidates) {
+    const unique = [];
+    for (const candidate of Array.isArray(candidates) ? candidates : []) {
+      if (candidate && !unique.includes(candidate)) unique.push(candidate);
+    }
+    return unique.filter((candidate) => !unique.some((other) => (
+      other !== candidate &&
+      typeof candidate.contains === "function" &&
+      candidate.contains(other)
+    )));
+  }
+
+  // The exact inline declaration is recorded, including its priority, so the
+  // page can be put back the way it was instead of "close enough".
+  function rememberInlineStyle(element, property) {
+    return {
+      element,
+      property,
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property),
+    };
+  }
+
+  function restoreInlineStyles(entries) {
+    const list = Array.isArray(entries) ? entries : [];
+    for (let index = list.length - 1; index >= 0; index--) {
+      const entry = list[index];
+      if (!entry || !entry.element || !entry.element.style) continue;
+      if (entry.value) entry.element.style.setProperty(entry.property, entry.value, entry.priority || "");
+      else entry.element.style.removeProperty(entry.property);
+    }
+  }
+
   function rectsOverlap(a, b) {
     return Boolean(
       a && b &&
@@ -192,10 +284,16 @@
     computeBitmapCrop,
     fitWithin,
     intersectRect,
+    intersectRects,
     isVideoReady,
     rectsOverlap,
+    reduceOverlayCandidates,
+    rememberInlineStyle,
+    restoreInlineStyles,
+    sampleRectPoints,
     shiftBelowRects,
     shiftLeftToAvoidRects,
+    stackAboveTarget,
     translateRectThroughFrame,
   };
 });
