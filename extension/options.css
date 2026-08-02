@@ -1,0 +1,134 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: Canvas;
+  color: CanvasText;
+}
+
+body {
+  margin: 0;
+  min-width: 440px;
+}
+
+main {
+  padding: 24px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+h1, h2, p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 20px;
+}
+
+header p,
+.hint {
+  color: GrayText;
+}
+
+h2 {
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.hint {
+  margin-bottom: 18px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.key-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+small {
+  color: GrayText;
+  font-weight: 400;
+}
+
+input {
+  width: 80px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, CanvasText 22%, transparent);
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+  font: 700 20px/1 ui-monospace, monospace;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.timeout-label {
+  margin-top: 18px;
+}
+
+select {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.preview {
+  margin-top: 18px;
+  padding: 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, CanvasText 8%, transparent);
+  font-size: 13px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, CanvasText 24%, transparent);
+  border-radius: 5px;
+  background: Canvas;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+button {
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: color-mix(in srgb, CanvasText 10%, transparent);
+  color: CanvasText;
+}
+
+#status {
+  color: #188038;
+  font-size: 13px;
+  font-weight: 600;
+}

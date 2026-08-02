@@ -2,12 +2,18 @@
 
 ## Core flow
 
-- [ ] Camera button appears after video metadata loads and when the video is hovered.
+- [ ] Camera button remains visible on every sufficiently large video currently in view.
+- [ ] Camera button stays visible on a paused or lazy background video even when another page layer covers the video.
+- [ ] When another screenshot extension occupies the upper-right corner, this extension shifts left instead of overlapping it.
+- [ ] Default `V` then `S` triggers one capture within 0.7 seconds.
+- [ ] `S` then `S` and single-key `P` can be saved from Options and work after saving.
+- [ ] Shortcuts do not fire in inputs, textareas, selects, or editable content.
 - [ ] Clicking the button copies a PNG without downloading a file.
-- [ ] Clicking the toolbar icon captures the largest visible top-level video.
+- [ ] Clicking the toolbar icon captures the largest visible video, including one inside an embedded player.
 - [ ] Pasting into Preview/Paint, Slack, Figma, ChatGPT, and a document works.
 - [ ] Success toast and green `✓` badge appear.
 - [ ] Clipboard denial shows a clear error and red `!` badge.
+- [ ] A cross-origin iframe that cannot reach the clipboard itself still copies, by handing the PNG to the top frame.
 
 ## Video states
 
@@ -31,11 +37,13 @@
 
 - [ ] Local synthetic fixture: native 1280×720 frame.
 - [ ] YouTube regular video and Shorts.
-- [ ] Vimeo.
+- [ ] Vimeo homepage/modal player: button appears and both direct and visible-tab fallback capture the correct frame.
 - [ ] X/Twitter video.
 - [ ] Reddit video.
 - [ ] A page with a same-origin iframe.
 - [ ] A page with a cross-origin embedded player.
+- [ ] A video inside `about:blank`, `blob:`, or another origin-fallback frame.
+- [ ] A looped hero “moving photo” implemented as HTML5 video.
 - [ ] A DRM service fails honestly without saving or uploading anything.
 
 ## Lifecycle and safety

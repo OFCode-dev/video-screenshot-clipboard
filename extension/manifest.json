@@ -1,32 +1,38 @@
 {
   "manifest_version": 3,
-  "name": "Video Screenshot → Clipboard",
-  "short_name": "Video Screenshot",
+  "name": "Frame Screenshot → Clipboard",
+  "short_name": "Frame Screenshot",
   "version": "0.1.0",
   "description": "Copy the current frame of any HTML5 video straight to your clipboard.",
   "minimum_chrome_version": "116",
-  "permissions": ["clipboardWrite"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "permissions": ["clipboardWrite", "storage"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["<all_urls>"],
       "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
       "run_at": "document_idle",
       "js": ["frame-utils.js", "content.js"],
       "css": ["content.css"]
     }
   ],
   "action": {
-    "default_title": "Video Screenshot → Clipboard",
+    "default_title": "Frame Screenshot → Clipboard",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
   },
   "icons": {
     "16": "icons/icon16.png",

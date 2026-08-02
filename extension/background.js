@@ -1,11 +1,14 @@
-// Video Screenshot → Clipboard — Manifest V3 service worker.
+// Frame Screenshot → Clipboard — Manifest V3 service worker.
 // The content script captures origin-clean video frames itself. This worker
-// only supplies the visible-tab fallback used when a cross-origin canvas is
-// blocked by the page.
+// supplies the visible-tab fallback used when a cross-origin canvas is blocked
+// by the page, and relays clipboard writes from frames to the tab's top frame.
 
 const CAPTURE_INTERVAL_MS = 550;
+const FRAME_STATUS_TTL_MS = 5000;
 let lastCaptureAt = 0;
 let captureQueue = Promise.resolve();
+let clipboardQueue = Promise.resolve();
+const frameCandidates = new Map();
 
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab || !Number.isInteger(tab.id) || !/^https?:/.test(tab.url || "")) {
@@ -14,7 +17,9 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "VSC_CAPTURE_PRIMARY" });
+    const frameId = selectCaptureFrame(tab.id);
+    const options = Number.isInteger(frameId) ? { frameId } : undefined;
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "VSC_CAPTURE_PRIMARY" }, options);
     if (!response?.ok) await flashBadge("error");
   } catch (_) {
     await flashBadge("error");
@@ -22,6 +27,11 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "VSC_FRAME_STATUS") {
+    rememberFrameStatus(message, sender);
+    return false;
+  }
+
   if (message?.type === "VSC_CAPTURE_VISIBLE") {
     captureQueue = captureQueue
       .catch(() => undefined)
@@ -33,12 +43,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "VSC_COPY_PNG") {
+    clipboardQueue = clipboardQueue
+      .catch(() => undefined)
+      .then(() => copyPngInTopFrame(message.dataUrl, sender));
+
+    clipboardQueue
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: safeError(error) }));
+    return true;
+  }
+
   if (message?.type === "VSC_BADGE") {
     flashBadge(message.status).catch(() => undefined);
   }
 
   return false;
 });
+
+chrome.tabs.onRemoved.addListener((tabId) => frameCandidates.delete(tabId));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "loading") frameCandidates.delete(tabId);
+});
+
+function rememberFrameStatus(message, sender) {
+  const tabId = sender.tab?.id;
+  const frameId = sender.frameId;
+  if (!Number.isInteger(tabId) || !Number.isInteger(frameId)) return;
+
+  let candidates = frameCandidates.get(tabId);
+  if (!candidates) {
+    candidates = new Map();
+    frameCandidates.set(tabId, candidates);
+  }
+  if (!message.hasVideo || !(Number(message.area) > 0)) {
+    candidates.delete(frameId);
+    return;
+  }
+  candidates.set(frameId, {
+    area: Number(message.area),
+    seenAt: Date.now(),
+  });
+}
+
+function selectCaptureFrame(tabId) {
+  const candidates = frameCandidates.get(tabId);
+  if (!candidates) return 0;
+
+  const now = Date.now();
+  let winnerFrameId = 0;
+  let winnerArea = 0;
+  for (const [frameId, candidate] of candidates) {
+    if (now - candidate.seenAt > FRAME_STATUS_TTL_MS) {
+      candidates.delete(frameId);
+      continue;
+    }
+    if (candidate.area > winnerArea) {
+      winnerArea = candidate.area;
+      winnerFrameId = frameId;
+    }
+  }
+  return winnerFrameId;
+}
 
 async function captureVisibleForSender(sender) {
   const sourceTab = sender.tab;
@@ -56,6 +122,26 @@ async function captureVisibleForSender(sender) {
   lastCaptureAt = Date.now();
 
   return chrome.tabs.captureVisibleTab(sourceTab.windowId, { format: "png" });
+}
+
+// Writing an image to the clipboard requires a focused document. Neither this
+// worker nor an offscreen document can ever be focused, so a frame that cannot
+// reach the clipboard itself is relayed to the top frame of its own tab, which
+// is focused while the user clicks the capture button.
+async function copyPngInTopFrame(dataUrl, sender) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) {
+    throw new Error("Invalid PNG data");
+  }
+
+  const tabId = sender?.tab?.id;
+  if (!Number.isInteger(tabId)) throw new Error("The requesting tab is gone");
+
+  const response = await chrome.tabs.sendMessage(
+    tabId,
+    { type: "VSC_CLIPBOARD_WRITE", dataUrl },
+    { frameId: 0 }
+  );
+  if (!response?.ok) throw new Error(response?.error || "Clipboard write failed");
 }
 
 async function flashBadge(status) {

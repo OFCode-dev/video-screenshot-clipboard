@@ -8,6 +8,12 @@
 }
 
 .vsc-overlay-host {
+  /* `all: initial` leaves top/left auto, which anchors a fixed element to its
+     static position — the end of the document. On a long page that puts the
+     control thousands of pixels below the video, so pin it to the viewport
+     origin and let the transform place it. */
+  top: 0 !important;
+  left: 0 !important;
   width: 38px !important;
   height: 38px !important;
   pointer-events: none !important;
@@ -20,8 +26,24 @@
   opacity: 1 !important;
 }
 
+/* Decorative background videos keep a faint control until the pointer or
+   keyboard focus reaches them, so the page stays uncluttered. */
+.vsc-overlay-host.vsc-visible.vsc-ambient {
+  opacity: 0.3 !important;
+}
+
+.vsc-overlay-host.vsc-visible.vsc-ambient.vsc-awake,
+.vsc-overlay-host.vsc-visible.vsc-ambient:focus-within,
+.vsc-overlay-host.vsc-visible.vsc-ambient:has(.vsc-copy-button:hover) {
+  opacity: 1 !important;
+}
+
+/* This has to beat every opacity rule above it, whatever their specificity: the
+   capture is a photograph of the tab, so a control left on screen lands in the
+   PNG. visibility is a separate property, so no opacity rule can override it. */
 .vsc-overlay-host.vsc-capture-hidden {
   opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 .vsc-copy-button {
@@ -31,9 +53,9 @@
   place-items: center !important;
   width: 38px !important;
   height: 38px !important;
-  border: 1px solid rgba(255, 255, 255, 0.56) !important;
+  border: 1px solid rgba(255, 255, 255, 0.38) !important;
   border-radius: 10px !important;
-  background: rgba(18, 24, 38, 0.88) !important;
+  background: rgba(18, 24, 38, 0.62) !important;
   color: #fff !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.34) !important;
   cursor: pointer !important;
@@ -60,10 +82,40 @@
 
 .vsc-copy-button svg {
   all: initial !important;
+  /* `all: initial` would reset visibility to visible, letting the glyph paint
+     out of a hidden button and into a visible-tab capture. */
+  visibility: inherit !important;
   display: block !important;
   width: 21px !important;
   height: 21px !important;
   color: inherit !important;
+}
+
+/* YouTube owns the button dimensions through its native .ytp-button class.
+   We only center our glyph, so it stays aligned at every player size. */
+.vsc-ytp-control > svg {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 24px !important;
+  height: 24px !important;
+  transform: translate(-50%, -50%) !important;
+  color: #fff !important;
+}
+
+.vsc-ytp-control {
+  position: relative !important;
+}
+
+.vsc-ytp-control:disabled {
+  cursor: wait !important;
+  opacity: 0.78 !important;
+}
+
+.vsc-copy-button.vsc-capture-hidden,
+.vsc-ytp-control.vsc-capture-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .vsc-toast-host {

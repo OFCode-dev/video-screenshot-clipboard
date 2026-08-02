@@ -2,7 +2,7 @@
 
 ## Name
 
-Video Screenshot → Clipboard
+Frame Screenshot → Clipboard
 
 ## Short description
 
@@ -17,9 +17,11 @@ Hover an HTML5 video, click the camera button, and the current frame is copied a
 ### Features
 
 - One click from the video player
-- Toolbar shortcut for the largest visible video
+- Toolbar shortcut for the largest visible video, including embedded players
+- Custom one-key or two-key page shortcut (default: V then S)
 - Native-resolution frame capture when the site allows it
-- Automatic visible-frame fallback for cross-origin video
+- Automatic visible-frame fallback with nested iframe coordinate correction
+- Detects looped “moving photos” implemented as HTML5 video
 - Works with videos added dynamically by modern web apps
 - Multiple videos per page
 - No editor, save dialog, download, account, or tracking
